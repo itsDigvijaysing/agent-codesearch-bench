@@ -26,6 +26,7 @@ much memory does that cost?
 | Tool | File recall@10 | MRR | Line recall @ 8k tokens | Tokens returned | Failures |
 |---|---|---|---|---|---|
 | grep (ripgrep 14.1.0) | 0.330 [0.251, 0.412] | 0.260 [0.192, 0.332] | 0.077 [0.045, 0.115] | 49,546 | 0/100 |
+| grep-distinct (ripgrep 14.1.0) | 0.438 [0.366, 0.522] | 0.433 [0.348, 0.520] | 0.154 [0.109, 0.202] | 31,653 | 0/100 |
 | bm25 (bm25s 0.3.16) | 0.402 [0.327, 0.485] | 0.400 [0.327, 0.481] | 0.224 [0.169, 0.285] | 4,728 | 0/100 |
 
 Means over 100 tasks with 95% bootstrap confidence intervals (B = 1000, seed 42). Full table: [results/v1/summary.md](results/v1/summary.md).

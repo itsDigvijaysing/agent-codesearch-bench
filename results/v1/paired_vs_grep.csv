@@ -1,4 +1,14 @@
 tool,baseline,metric,diff,ci_low,ci_high,p_value
+grep-distinct,grep,file_recall@1,0.0728258,0.0243195,0.121061,0.002
+grep-distinct,grep,file_recall@5,0.126954,0.0715175,0.189204,0
+grep-distinct,grep,file_recall@10,0.107843,0.040935,0.182709,0.004
+grep-distinct,grep,file_precision@5,0.054,0.02995,0.084,0
+grep-distinct,grep,file_precision@10,0.024,0.008,0.043,0
+grep-distinct,grep,mrr,0.172821,0.104603,0.246905,0
+grep-distinct,grep,span_recall,0.0470521,0.00413398,0.088951,0.03
+grep-distinct,grep,span_precision,0.00838658,0.00376329,0.0147906,0
+grep-distinct,grep,line_recall@2000tok,0.0584949,0.0285182,0.0919806,0
+grep-distinct,grep,line_recall@8000tok,0.0766645,0.0367483,0.120139,0
 bm25,grep,file_recall@1,0.0550952,-0.00298036,0.12419,0.08
 bm25,grep,file_recall@5,0.144378,0.073072,0.218226,0
 bm25,grep,file_recall@10,0.0718586,-0.0131395,0.150639,0.088
