@@ -1,6 +1,6 @@
 CONFIG ?= configs/v1.yaml
 
-.PHONY: all sync check sample run report
+.PHONY: all sync check sample run report try
 
 # Recompute every number from scratch (committed per-task records are ignored).
 all: sync
@@ -22,3 +22,7 @@ run:
 
 report:
 	uv run csbench report --config $(CONFIG)
+
+# Rank the tools on your own repository: make try REPO=/path/to/repo
+try:
+	uv run csbench try $(REPO)

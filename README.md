@@ -44,6 +44,24 @@ Means over 100 tasks with 95% bootstrap confidence intervals (B = 1000, seed 42)
 Query latency excludes index build time; build time, index size and memory are in the full
 table.
 
+## Try it on your project
+
+Which tool works best on *your* code? One command mines tasks from your repository's git
+history and runs every tool on them:
+
+```bash
+uvx --from git+https://github.com/itsDigvijaysing/agent-codesearch-bench csbench try /path/to/your/repo
+```
+
+(or `make try REPO=/path/to/your/repo` from a checkout). It needs [uv](https://docs.astral.sh/uv/),
+git and ripgrep, and writes the same report as above to `./csbench-try-<name>/`. Tasks are your
+recent focused commits (1 to 5 non-test files changed; version bumps, merges, reverts and
+formatting skipped): the commit message is the query and the lines the commit changed are the
+answer, with every tool run on the commit before it. Commit messages are written after the
+fix and often name the changed code, so absolute scores run high; compare the tools with each
+other. Options: `--commits N` (default 20), `--tools grep bm25 semble`, `--time-budget-min M`
+(stop and resume later). The rule is in [`src/csbench/tryrepo.py`](src/csbench/tryrepo.py).
+
 ## Method
 
 **Dataset.** [ContextBench](https://github.com/EuniAI/ContextBench) (Apache-2.0,
@@ -62,14 +80,31 @@ list is then shuffled, so any prefix is also a seeded random subset. Result: dja
 transformers, scikit-learn and matplotlib 10 each; sympy, ansible, sphinx and keras 11 each;
 xarray and openlibrary 8 each.
 
+**Hard split** ([`data/sample_hard.txt`](data/sample_hard.txt),
+[`configs/hard.yaml`](configs/hard.yaml), rule `select_hard` in
+[`src/csbench/sample.py`](src/csbench/sample.py)): 50 tasks in any language, not in the v1
+sample, whose gold context spans at least 3 files, from repositories with at least 2,500
+tracked files at the base commit, at most 5 per repository (seed 0). That selects 13 large
+projects in Python, JavaScript, TypeScript and Java: django, ansible, transformers, langchain,
+matplotlib, svelte, prettier, material-ui (two repository names), NodeBB, element-web, vscode
+and logstash. Run it with `make all CONFIG=configs/hard.yaml`.
+
 **Input.** Each tool gets the task's issue text (problem statement) as the query, with the
 repository checked out at the task's base commit. Every gold file of the 100 sample tasks
 exists at its base commit (299 of 299 files checked), so a perfect tool can reach recall 1.
 Each tool is asked for its top 10 results in its own unit (files, chunks or code entities).
 
 **Track A: retrieval only.** Each tool returns ranked context (files and, where available,
-line spans), which is scored against the gold context. Track B (an agent using each tool,
-measuring task success and tokens) is planned; see [PLAN.md](PLAN.md).
+line spans), which is scored against the gold context.
+
+**Track B: an agent with each tool** ([`configs/trackb.yaml`](configs/trackb.yaml),
+[`src/csbench/trackb.py`](src/csbench/trackb.py)). A coding agent (Claude Code in a cloud
+session, Haiku model) gets the same issue at the base commit and must name the code to read or
+change, ending with a JSON list of locations. Arms differ only in one setup line and the
+tool's own documented agent instructions (for semble, its CLI sub-agent text, verbatim). The
+final locations are scored with the Track A metrics; cost is the session's own token count,
+turns, time and list-price cost. Web search and fetch are forbidden in the prompt and their
+counts are recorded. Status: pilot (see [PLAN.md](PLAN.md)).
 
 **Baselines.**
 - *grep*: identifiers extracted from the issue text (file paths, dotted names, CamelCase and
