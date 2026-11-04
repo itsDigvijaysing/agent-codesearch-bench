@@ -1,7 +1,8 @@
 """Track B: an agent localizes the code an issue needs, with and without each tool.
 
 Protocol (``configs/trackb.yaml``): every arm gets the same prompt at the task's base commit;
-arms differ only in a tool setup line and the tool's own documented agent instructions. The
+arms differ only in a project setup line and the tool's own documented agent instructions,
+given as CLAUDE.md project instructions at the top of the prompt. The
 agent ends with a JSON list of locations, scored against the gold context with the Track A
 file and span metrics. Cost comes from the session's own result record (tokens, turns, time).
 
@@ -33,6 +34,7 @@ RECORD_FIELDS = (
 QUALITY = ["file_recall@1", "file_recall@5", "file_recall@10", "mrr", "span_recall",
            "span_precision"]  # fmt: skip
 COST = ["total_tokens", "output_tokens", "num_turns", "duration_s", "cost_usd"]
+CLAUDE_MD_HEADING = "Contents of CLAUDE.md (project instructions, checked into the codebase):"
 _JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 
 
@@ -67,7 +69,11 @@ def session_request(cfg: dict, root: Path, task: Task, arm: str) -> dict:
         max_locations=cfg["max_locations"],
         issue=clean(task.problem_statement),
     )
-    instructions = (root / spec["instructions"]).read_text() if spec["instructions"] else None
+    if spec["instructions"]:
+        # Delivered as project instructions, where each tool's own installer puts them
+        # (CLAUDE.md). The session API ignores append_system_prompt (verified with a probe).
+        text = re.sub(r"<!--.*?-->\s*", "", (root / spec["instructions"]).read_text(), flags=re.S)
+        prompt = f"{CLAUDE_MD_HEADING}\n\n{text.strip()}\n\n---\n\n{prompt}"
     return {
         "task_id": task.instance_id,
         "arm": arm,
@@ -76,7 +82,6 @@ def session_request(cfg: dict, root: Path, task: Task, arm: str) -> dict:
         "source_url": task.repo_url,
         "source_revision": task.base_commit,
         "prompt": prompt,
-        "append_system_prompt": instructions,
     }
 
 

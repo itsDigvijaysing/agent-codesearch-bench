@@ -1,6 +1,8 @@
 # Track B: an agent (Claude Code cloud session) localizes the code an issue needs, with and
 # without each tool. Identical prompt for every arm; arms differ only in a project setup line
-# and the tool's own documented agent instructions (appended to the system prompt).
+# and the tool's own documented agent instructions, given as CLAUDE.md project instructions at
+# the top of the prompt (where the tools' installers put them; the session API ignores
+# append_system_prompt).
 # The tools are preinstalled for every arm by the cloud environment's setup script:
 #   uv tool install semble==0.7.2 graphifyy==0.9.102 code-review-graph==2.3.9 (one per line)
 # so all arms run on the same machine image. code-review-graph and Serena are not arms: their
@@ -34,5 +36,7 @@ arms:
     setup: ""  # preinstalled; the index builds on the first search
     instructions: configs/trackb/semble.md
   graphify:
-    setup: "Before you start, build the code graph once with: GRAPHIFY_BACKEND=none graphify extract . --code-only"
+    # the exclude keeps graphify-out/ out of git status (an untracked folder triggers the
+    # environment's commit reminder, which made agents do unrelated extra work)
+    setup: "Before you start, build the code graph once with: GRAPHIFY_BACKEND=none graphify extract . --code-only && echo graphify-out/ >> .git/info/exclude"
     instructions: configs/trackb/graphify.md

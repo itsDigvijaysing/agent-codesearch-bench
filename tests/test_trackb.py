@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from csbench.dataset import Task
-from csbench.trackb import load_config, parse_locations, score, session_request
+from csbench.trackb import CLAUDE_MD_HEADING, load_config, parse_locations, score, session_request
 
 ROOT = Path(__file__).parent.parent
 TASK = Task(
@@ -57,12 +57,13 @@ def test_session_request_differs_only_by_arm_setup():
     assert list(pilot["arms"]) == ["baseline", "semble"] and pilot["limit"] == 10
     base = session_request(cfg, root, TASK, "baseline")
     tool = session_request(cfg, root, TASK, "semble")
-    assert base["append_system_prompt"] is None and "semble search" in tool["append_system_prompt"]
+    assert "CLAUDE.md" not in base["prompt"] and "semble search" in tool["prompt"]
+    assert tool["prompt"].startswith(CLAUDE_MD_HEADING) and "<!--" not in tool["prompt"]
     graph = session_request(cfg, root, TASK, "graphify")
     setup = cfg["arms"]["graphify"]["setup"]
-    assert graph["prompt"].replace(setup, "") == base["prompt"]
+    assert graph["prompt"].split("---\n\n", 1)[1].replace(setup, "") == base["prompt"]
     assert base["source_revision"] == "abc" and "<issue>\nBug in x\n</issue>" in base["prompt"]
-    assert tool["prompt"] == base["prompt"]  # semble is preinstalled: no setup line
+    assert tool["prompt"].split("---\n\n", 1)[1] == base["prompt"]  # preinstalled: no setup
 
 
 def test_clean_normalizes_whitespace():
