@@ -47,6 +47,11 @@ Means over 100 tasks with 95% bootstrap confidence intervals (B = 1000, seed 42)
 Query latency excludes index build time; build time, index size and memory are in the full
 table.
 
+**Hard split** (50 tasks in 13 large projects, gold context in 3 or more files, 4 languages):
+every tool scores lower; file recall@10 is 0.285 for semble, 0.211 for graphify, 0.178 for
+BM25, 0.153 for grep-distinct, 0.116 for grep and 0.051 for code-review-graph. Full table with
+confidence intervals: [results/hard/summary.md](results/hard/summary.md).
+
 ## Try it on your project
 
 Which tool works best on *your* code? One command mines tasks from your repository's git
