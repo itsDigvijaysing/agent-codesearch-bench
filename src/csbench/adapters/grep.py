@@ -1,12 +1,16 @@
 """grep baseline: ripgrep over identifiers extracted from the issue text.
 
-Term extraction rule (applied to the raw problem statement, in this order, case-sensitive):
+Term extraction rule (applied to the problem statement with URLs and e-mail addresses removed,
+in this order, case-sensitive):
   1. file paths: ``word/word.ext`` or ``word.ext`` with a source/doc extension;
-  2. dotted names: ``a.b`` or longer chains of identifiers;
+  2. dotted names: ``a.b`` or longer chains of identifiers, except web domains (``www.`` prefix
+     or a final component that is a common top-level domain) and prose abbreviations whose
+     components are all single letters (``e.g``, ``i.e``);
   3. CamelCase and camelCase identifiers;
   4. snake_case identifiers (contain ``_``, includes dunders);
   5. quoted strings of 3-80 chars without a newline, in backticks, or in single/double quotes
-     not adjoining a word character (so prose apostrophes are skipped).
+     not adjoining a word character (so prose apostrophes are skipped), except a single plain
+     word such as ``'where'``, which is English rather than an identifier.
 Terms shorter than 3 characters are dropped, duplicates removed keeping first occurrence, and
 at most ``max_terms`` (default 64) are kept. ripgrep searches all terms as fixed strings in one
 pass over the checkout (hidden files included, ``.git`` excluded, ``.gitignore`` respected,
@@ -36,12 +40,30 @@ PATTERNS = [
 ]
 
 
+_URL = re.compile(r"\b(?:https?|ftp)://\S+|\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_TLD = {"com", "org", "net", "io", "edu", "gov", "info", "dev", "uk", "de", "fr", "ch", "jp"}
+_PLAIN_WORD = re.compile(r"[A-Za-z]+")
+_DOTTED = 1
+_QUOTED = 4
+
+
+def _keep(order: int, term: str) -> bool:
+    if len(term) < 3:
+        return False
+    if order == _DOTTED:
+        parts = term.split(".")
+        if parts[0] == "www" or parts[-1] in _TLD or all(len(p) == 1 for p in parts):
+            return False
+    return not (order == _QUOTED and _PLAIN_WORD.fullmatch(term))
+
+
 def extract_terms(text: str, max_terms: int = 64) -> list[str]:
+    text = _URL.sub(" ", text)
     found: list[tuple[int, int, str]] = []
     for order, pattern in enumerate(PATTERNS):
         for m in pattern.finditer(text):
             term = next((g for g in m.groups() if g), None) if m.groups() else m.group(0)
-            if term and len(term.strip()) >= 3:
+            if term and _keep(order, term.strip()):
                 found.append((order, m.start(), term.strip()))
     terms: dict[str, None] = {}
     for _, _, term in sorted(found):

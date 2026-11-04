@@ -28,6 +28,26 @@ def test_extract_terms_rule():
     assert len(extract_terms(" ".join(f"name_{i}" for i in range(100)), 64)) == 64
 
 
+def test_extract_terms_drops_non_identifiers():
+    text = (
+        "See https://github.com/org/repo/issues/1 and keras.io or www.unidata.ucar.edu, "
+        "mail me@example.com, e.g. this, i.e. that. Use 'where' but keep 'pop from empty' "
+        "and `xr.where` and np.c_"
+    )
+    terms = extract_terms(text)
+    for t in [
+        "keras.io",
+        "www.unidata.ucar.edu",
+        "e.g",
+        "i.e",
+        "where",
+        "example.com",
+        "github.com/org/repo",
+    ]:
+        assert t not in terms
+    assert {"pop from empty", "xr.where", "np.c_"} <= set(terms)
+
+
 def test_tokenize_splits_code_identifiers():
     assert tokenize("parseJSONValue snake_case HTTPServer x") == [
         "parse",
