@@ -5,12 +5,17 @@ welcome to propose changes through a pull request.
 
 ## Proposing a tool configuration
 
-1. Add or edit the tool's entry in `configs/tools.yaml` with an exact version or commit SHA.
-   Keep the default configuration; add a tuned one as a separate entry with a `-tuned` suffix.
+1. Add or edit the tool's entry in `configs/tools.yaml` with an exact version (`name==x.y.z`)
+   and `env: configs/envs/<tool>.txt`, then generate the hashed lock file with
+   `uv run csbench lock --tools <tool>`. Keep the default configuration; add a tuned one as a
+   separate entry with a `-tuned` suffix.
 2. If the tool is new, add an adapter in `src/csbench/adapters/<tool>.py` that uses only the
    tool's documented interface (CLI, Python API, or its MCP server over stdio), and register it
    in `src/csbench/adapters/__init__.py`. An adapter implements `version()`, `build()` and
-   `search()` and returns ranked `Hit`s (file, optional 1-based inclusive line span).
+   `search()` (and optionally `prepare()` for one-time downloads outside timing) and returns
+   ranked `Hit`s (file, optional 1-based inclusive line span). It runs inside the tool's own
+   environment. Set `returns_code = False` if the tool returns locations instead of code, and
+   store its output text in `raw_output` so its token cost is counted.
 3. Track A tools must run on CPU without network calls or LLM calls at query time.
 4. Run `uv run ruff check .` and `uv run pytest`, then a smoke run:
    `uv run csbench all --tools <tool> --limit 10`.

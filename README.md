@@ -32,6 +32,18 @@ much memory does that cost?
 Means over 100 tasks with 95% bootstrap confidence intervals (B = 1000, seed 42). Full table: [results/v1/summary.md](results/v1/summary.md).
 <!-- results:end -->
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="results/v1/plots/recall_vs_tokens_dark.png">
+  <img alt="File recall@10 against tokens returned per query, one labelled point per tool with 95% confidence intervals" src="results/v1/plots/recall_vs_tokens_light.png" width="640">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="results/v1/plots/recall_vs_latency_dark.png">
+  <img alt="File recall@10 against query latency, one labelled point per tool with 95% confidence intervals" src="results/v1/plots/recall_vs_latency_light.png" width="640">
+</picture>
+
+Query latency excludes index build time; build time, index size and memory are in the full
+table.
+
 ## Method
 
 **Dataset.** [ContextBench](https://github.com/EuniAI/ContextBench) (Apache-2.0,
@@ -52,8 +64,8 @@ xarray and openlibrary 8 each.
 
 **Input.** Each tool gets the task's issue text (problem statement) as the query, with the
 repository checked out at the task's base commit. Every gold file of the 100 sample tasks
-exists at its base commit (299 of 299 files checked), so a perfect tool can reach recall 1. Each tool is asked for its top 10 results
-in its own unit (files or chunks).
+exists at its base commit (299 of 299 files checked), so a perfect tool can reach recall 1.
+Each tool is asked for its top 10 results in its own unit (files, chunks or code entities).
 
 **Track A: retrieval only.** Each tool returns ranked context (files and, where available,
 line spans), which is scored against the gold context. Track B (an agent using each tool,
@@ -74,6 +86,27 @@ measuring task success and tokens) is planned; see [PLAN.md](PLAN.md).
   50-line chunks of git-tracked text files up to 1 MB; code-aware tokenizer (snake_case and
   camelCase split, lowercased). See [`adapters/bm25.py`](src/csbench/adapters/bm25.py).
 
+**Tools under test** (exact versions and settings in [`configs/tools.yaml`](configs/tools.yaml)).
+Each runs through its documented interface with default settings, in its own virtual
+environment installed from a committed, hashed lock file (`configs/envs/<tool>.txt`), so every
+tool gets the dependency versions its own users get. Everything runs on CPU without network
+access at query time and without any LLM call.
+- *semble*: Python API, `SembleIndex.from_path(repo)` then `search(query, top_k=10)`; its
+  default embedding model (`minishlab/potion-code-16M-v2`) pinned to a Hugging Face revision.
+  Returns code chunks.
+- *graphify*: `graphify extract <repo> --code-only` with `GRAPHIFY_BACKEND=none` (tree-sitter
+  AST, all LLM backends disabled), then `graphify query "<issue>"` with defaults (depth 2,
+  2,000-token budget; graphify sizes answers by tokens, not by a result count). Returns graph
+  nodes with a file and a start line.
+- *code-review-graph*: `code-review-graph build`, then `code-review-graph search "<issue>"
+  --limit 10`; without an embedding provider configured (the default) search is keyword
+  full-text search. Returns code entities with a file and a line range.
+
+graphify and code-review-graph return locations rather than code. They are scored on what they
+return: file metrics from the order of their results, span metrics where they give line ranges
+(code-review-graph), and tokens returned as the size of their own output, which is what the
+agent receives. Token-budget recall is not applicable to them.
+
 **Metrics per (tool, task).** Ranked files are the distinct files of the results in order.
 - File recall@1/5/10, file precision@5/10 (divided by k), MRR of the first gold file.
 - Span recall and precision: line-level overlap of the union of returned spans with the gold
@@ -82,7 +115,8 @@ measuring task success and tokens) is planned; see [PLAN.md](PLAN.md).
   0, not 1.
 - Tokens returned: the returned lines, read from the checkout, counted with tiktoken
   `o200k_base` (tool formatting overhead is excluded). A whole-file result counts the whole
-  file.
+  file. For tools that return locations, the tokens of the tool's own output.
+- Empty results: successful queries that returned nothing (reported, scored as zero recall).
 - Line recall at 2,000 and 8,000 tokens: gold-line recall of the results taken in rank order
   until the budget is used; the result that crosses the budget keeps its leading lines.
 - Query latency, index build time, index size on disk, and peak RSS (maximum over the worker
@@ -106,11 +140,17 @@ This is `uv run csbench all --fresh --config configs/v1.yaml`: it downloads the 
 dataset, checks out each task's repository (blobless clone plus a worktree), runs every active
 tool, and writes `results/v1/`, including the table above. It ignores the committed records,
 so the output can be compared with what is committed. Interrupted runs resume where they
-stopped. Versions are pinned in `uv.lock` and [`configs/tools.yaml`](configs/tools.yaml).
+stopped. Versions are pinned in `uv.lock` (the benchmark and its baselines),
+[`configs/tools.yaml`](configs/tools.yaml) and the per-tool lock files in
+[`configs/envs/`](configs/envs); tool environments are created automatically under `.cache/`.
+
+[`scripts/weekly.sh`](scripts/weekly.sh) upgrades the tools under test to their latest
+releases (`csbench upgrade`), recomputes only what changed, and commits the new results. The
+grep and BM25 baselines stay fixed so the reference point does not move.
 
 Per-task records are committed in `results/v1/per_task/<tool>.jsonl.gz`. Each record carries
-a fingerprint of the tool settings, metric settings, dataset revision and the adapter and
-metric source code; `uv run csbench run` (without `--fresh`) reuses a committed record only
+a fingerprint of the tool settings, metric settings, dataset revision, the tool's lock file and
+the adapter and metric source code; `uv run csbench run` (without `--fresh`) reuses a committed record only
 when its fingerprint still matches.
 
 ## Tools
@@ -118,9 +158,9 @@ when its fingerprint still matches.
 | Tool | Status |
 |---|---|
 | grep, grep-distinct and BM25 baselines | in v1 |
-| [semble](https://github.com/MinishLab/semble) | M1 |
-| [graphify](https://github.com/Graphify-Labs/graphify) | M2, deterministic AST code mode only |
-| [code-review-graph](https://github.com/tirth8205/code-review-graph) | M2, only if it can be queried without an LLM |
+| [semble](https://github.com/MinishLab/semble) | in v1 |
+| [graphify](https://github.com/Graphify-Labs/graphify) | in v1, deterministic AST code mode only |
+| [code-review-graph](https://github.com/tirth8205/code-review-graph) | in v1, keyword search (no embeddings, no LLM) |
 | [Serena](https://github.com/oraios/serena) | Track B: agent-driven symbolic navigation, not free-text retrieval |
 | [claude-context](https://github.com/zilliztech/claude-context) | v2: needs a Milvus instance and an embedding API key |
 
@@ -131,7 +171,11 @@ when its fingerprint still matches.
 - The issue text is used verbatim as a single query. Agents usually issue several, refined
   queries; Track B covers that.
 - The v1 sample is Python only, from 10 repositories.
-- Tokens count returned code only, not each tool's output formatting.
+- Tokens count returned code only, not each tool's output formatting (except for the
+  location tools, whose output is counted).
+- Query latency is measured inside one process per (tool, task): an in-process API call for
+  BM25 and semble, a CLI process (including its start-up) for grep, graphify and
+  code-review-graph. Peak RSS includes the benchmark's worker process (about 20 MiB).
 - The grep baseline returns every hit line (with context) of its top 10 files, so its token
   count is far higher than an agent that lists matching files first and then reads a few. The
   token-budget recall columns compare tools at equal token cost.
