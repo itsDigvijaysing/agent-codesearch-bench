@@ -4,6 +4,23 @@ A neutral, reproducible benchmark for the code-search and code-context tools tha
 use. It measures how well each tool retrieves the code a task actually needs, and what that
 costs in tokens, time and memory.
 
+## Key findings
+
+- **Retrieval alone (Track A, 100 Python tasks):** semble finds the needed files best (file
+  recall@10 0.62, against 0.33 for grep, a significant gap) while returning about 3,300 tokens
+  per query against grep's 49,500. graphify (0.43), BM25 (0.40) and grep ranked by distinct
+  terms (0.44) sit together; code-review-graph's keyword search returned nothing for 65 of 100
+  issue texts.
+- **Large projects (hard split, 50 tasks, 4 languages):** every tool roughly halves; semble
+  still leads (0.29), then graphify (0.21) and BM25 (0.18).
+- **With an agent (Track B, preliminary, 40 tasks, Haiku):** the agent alone already finds the
+  needed files 83% of the time. Given each tool's own instructions it used semble in 35 of 40
+  sessions and graphify in 34 of 40, yet neither changed accuracy measurably (paired p > 0.4);
+  graphify cost about 58,000 more tokens per session (p = 0.006) and 4.5 times the time.
+- **So:** a better retriever helps most when retrieval is all you have; an agent that can grep
+  and read recovers most of the gap on these tasks, at least with this model and task size.
+  Results on larger, multi-file tasks with an agent are the open question.
+
 ## Why
 
 Users of these tools keep asking for independent numbers, and tool authors have said there is
@@ -51,6 +68,19 @@ table.
 every tool scores lower; file recall@10 is 0.285 for semble, 0.211 for graphify, 0.178 for
 BM25, 0.153 for grep-distinct, 0.116 for grep and 0.051 for code-review-graph. Full table with
 confidence intervals: [results/hard/summary.md](results/hard/summary.md).
+
+**Track B, preliminary** (an agent with each tool; 40 tasks finished in every arm, Claude
+Haiku in Claude Code cloud sessions; full table with confidence intervals:
+[results/trackb-haiku/summary.md](results/trackb-haiku/summary.md)):
+
+| Arm | Used the tool | File recall@10 | MRR | Tokens per session | Time per session |
+|---|---|---|---|---|---|
+| Agent alone | n/a | 0.830 | 0.988 | 273,638 | 13 s |
+| Agent + semble | 35/40 | 0.853 | 0.975 | 303,077 | 32 s |
+| Agent + graphify | 34/40 | 0.842 | 0.975 | 331,954 | 60 s |
+
+The run stopped at an account usage limit after 40 to 50 tasks per arm; finished sessions were
+recovered and the rest are listed as missing in the summary. The Sonnet subset was not run.
 
 ## Try it on your project
 
@@ -112,7 +142,10 @@ change, ending with a JSON list of locations. Arms differ only in one setup line
 tool's own documented agent instructions (for semble, its CLI sub-agent text, verbatim). The
 final locations are scored with the Track A metrics; cost is the session's own token count,
 turns, time and list-price cost. Web search and fetch are forbidden in the prompt and their
-counts are recorded. Status: pilot (see [PLAN.md](PLAN.md)).
+counts are recorded, as is whether the agent actually ran the tool. The tool's instructions
+are placed in the prompt as CLAUDE.md project instructions (where its installer puts them);
+the tools are preinstalled for every arm by the cloud environment's setup script. Status:
+preliminary, 40 tasks (see [PLAN.md](PLAN.md)).
 
 **Baselines.**
 - *grep*: identifiers extracted from the issue text (file paths, dotted names, CamelCase and
@@ -228,6 +261,13 @@ when its fingerprint still matches.
 - The grep baseline returns every hit line (with context) of its top 10 files, so its token
   count is far higher than an agent that lists matching files first and then reads a few. The
   token-budget recall columns compare tools at equal token cost.
+
+- Track B is preliminary: 40 tasks, one model (Haiku), one session per task and arm (agent
+  runs are not deterministic), localization only (no patch or tests). It runs in Claude Code
+  cloud sessions, which change between versions, so the protocol and per-session records are
+  committed but the sessions cannot be replayed exactly. code-review-graph and Serena are not
+  Track B arms: their agent integration is an MCP server, which a cloud session cannot have
+  configured before it starts without also exposing it to the baseline arm.
 
 ## Credits and license
 
