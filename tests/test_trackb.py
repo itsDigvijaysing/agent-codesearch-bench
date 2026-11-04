@@ -54,3 +54,9 @@ def test_session_request_differs_only_by_arm_setup():
     assert base["source_revision"] == "abc" and "<issue>\nBug in x\n</issue>" in base["prompt"]
     setup = cfg["arms"]["semble"]["setup"]
     assert tool["prompt"].replace(setup, "") == base["prompt"]
+
+
+def test_clean_normalizes_whitespace():
+    from csbench.trackb import clean
+
+    assert clean("a  \r\nb\t \r\n\r\n") == "a\nb"

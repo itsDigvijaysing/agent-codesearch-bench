@@ -44,6 +44,11 @@ def tasks(cfg: dict, root: Path, parquet: Path) -> list[Task]:
     return [by_id[i] for i in ids[: cfg["tasks"].get("limit")]]
 
 
+def clean(text: str) -> str:
+    """Line endings to LF and no trailing spaces, so the prompt survives the session API intact."""
+    return "\n".join(line.rstrip() for line in text.replace("\r\n", "\n").split("\n")).strip()
+
+
 def session_request(cfg: dict, root: Path, task: Task, arm: str) -> dict:
     """Everything needed to start one session, exactly as the protocol specifies."""
     spec = cfg["arms"][arm]
@@ -51,7 +56,7 @@ def session_request(cfg: dict, root: Path, task: Task, arm: str) -> dict:
         repo=task.repo,
         setup=spec["setup"],
         max_locations=cfg["max_locations"],
-        issue=task.problem_statement.strip(),
+        issue=clean(task.problem_statement),
     )
     instructions = (root / spec["instructions"]).read_text() if spec["instructions"] else None
     return {
