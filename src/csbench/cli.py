@@ -1,8 +1,13 @@
-"""Command line: ``csbench {sample,lock,run,report,all} --config configs/v1.yaml``."""
+"""Command line: ``csbench {sample,lock,upgrade,run,report,all} --config configs/v1.yaml``.
+
+Exit codes: 0 done; 3 a run stopped at its time budget with pairs left (run it again);
+4 a tool upgrade needs a maintainer to review a changed default.
+"""
 
 from __future__ import annotations
 
 import argparse
+import sys
 
 from csbench import report, runner
 from csbench.config import Config
@@ -10,7 +15,7 @@ from csbench.config import Config
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="csbench")
-    ap.add_argument("command", choices=["sample", "lock", "run", "report", "all"])
+    ap.add_argument("command", choices=["sample", "lock", "upgrade", "run", "report", "all"])
     ap.add_argument("--config", default="configs/v1.yaml")
     ap.add_argument("--tools", nargs="+", help="subset of tools from the config")
     ap.add_argument("--limit", type=int, help="first N tasks of the sample")
@@ -31,8 +36,18 @@ def main(argv: list[str] | None = None) -> int:
             if spec.env:
                 print(runner.lock_env(cfg, spec))
         return 0
+    if args.command == "upgrade":
+        from csbench.upgrade import NeedsReview, upgrade
+
+        try:
+            for tool, old, new in upgrade(cfg, args.tools):
+                print(f"{tool} {old} {new}")
+        except NeedsReview as exc:
+            print(f"needs review: {exc}", file=sys.stderr)
+            return 4
+        return 0
     if args.command in ("run", "all"):
-        runner.run(
+        _, complete = runner.run(
             cfg,
             tools=args.tools,
             limit=args.limit,
@@ -40,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
             time_budget_s=args.time_budget_min * 60 if args.time_budget_min else None,
             use_committed=not args.fresh,
         )
+        if not complete:
+            return 3
     if args.command in ("report", "all"):
         print(report.write(cfg, args.tools, use_committed=not args.fresh))
     return 0

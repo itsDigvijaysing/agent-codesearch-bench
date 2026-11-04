@@ -281,7 +281,8 @@ def run(
     retry_failed: bool = False,
     time_budget_s: float | None = None,
     use_committed: bool = True,
-) -> int:
+) -> tuple[int, bool]:
+    """Evaluate pending (tool, task) pairs; return (pairs evaluated, whether all are done)."""
     started = time.monotonic()
     specs = [s for s in cfg.tools(tools) if s.status == "active"]
     committed = {s.name: committed_records(cfg, s.name) if use_committed else {} for s in specs}
@@ -298,7 +299,7 @@ def run(
             continue
         if time_budget_s is not None and time.monotonic() - started > time_budget_s:
             log("time budget reached; stopping (rerun to resume)")
-            break
+            return done, False
         work = cache_dir / "work" / task.instance_id
         try:
             repos.checkout(cache_dir, task.repo, task.repo_url, task.base_commit, work)
@@ -320,7 +321,7 @@ def run(
         repos.remove(cache_dir, task.repo, work)
         enforce_disk_limit(cfg)
     log(f"finished: {done} pair(s) evaluated")
-    return done
+    return done, True
 
 
 def failed_checkout(cfg: Config, spec: ToolSpec, task: Task, msg: str) -> dict:
