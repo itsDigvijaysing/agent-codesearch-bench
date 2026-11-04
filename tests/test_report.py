@@ -21,3 +21,10 @@ def test_update_readme_replaces_only_marked_block(tmp_path):
     assert readme.read_text() == f"intro\n{README_START}\nnew table\n{README_END}\noutro\n"
     readme.write_text("no markers\n")
     assert not update_readme(cfg, "x") and readme.read_text() == "no markers\n"
+
+
+def test_plot_tick_formatters():
+    from csbench.plots import fmt_seconds, fmt_tokens
+
+    assert [fmt_tokens(v) for v in (500, 2000, 50000)] == ["500", "2K", "50K"]
+    assert [fmt_seconds(v) for v in (0.002, 0.05, 2)] == ["2 ms", "50 ms", "2 s"]

@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from csbench import plots
 from csbench.config import Config
 from csbench.metrics import bootstrap_ci, paired_bootstrap
 from csbench.runner import committed_records, load_record, sample_ids
@@ -131,7 +132,9 @@ def markdown(
         f"Dataset `{d['repo_id']}` ({d['config']}) at revision `{d['revision'][:12]}`; "
         f"{len(order)} tasks from `{cfg['sample']['file']}`; top_k={cfg['top_k']}. "
         f"Means with 95% bootstrap CIs (B={b['n_boot']}, seed {b['seed']}); failed tasks "
-        "score zero on quality metrics. Cost metrics are over successful tasks.",
+        "score zero on quality metrics. "
+        "n/a: not applicable (span metrics need line spans; token-budget recall needs returned "
+        "code). Cost metrics are over successful tasks.",
         "",
         "## Retrieval quality",
         "",
@@ -234,6 +237,7 @@ def write(cfg: Config, tools: list[str] | None = None, use_committed: bool = Tru
     _csv(out / "summary.csv", rows)
     _csv(out / f"paired_vs_{cfg['bootstrap']['baseline']}.csv", paired)
     (out / "summary.md").write_text(markdown(cfg, rows, paired, order, records))
+    plots.write(rows, len(order), out / "plots")
     update_readme(cfg, headline(cfg, rows, order))
     return out
 
