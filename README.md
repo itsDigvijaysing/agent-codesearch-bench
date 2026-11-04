@@ -65,6 +65,10 @@ measuring task success and tokens) is planned; see [PLAN.md](PLAN.md).
   with ripgrep as fixed strings in one pass. Files are ranked by total hit count (ties: distinct
   terms matched, then path). Each file returns its hit lines with 3 lines of context. The rule
   is documented in [`adapters/grep.py`](src/csbench/adapters/grep.py).
+- *grep-distinct*: the same terms and ripgrep pass, but files are ranked by the number of
+  distinct terms matched first, then hit count. Ranking by raw hit count favours large test
+  files and changelogs, so both rankings are reported; paired comparisons use the hit-count
+  `grep` as the baseline.
 - *BM25*: [bm25s](https://github.com/xhluca/bm25s) (Lucene variant, k1 = 1.5, b = 0.75) over
   50-line chunks of git-tracked text files up to 1 MB; code-aware tokenizer (snake_case and
   camelCase split, lowercased). See [`adapters/bm25.py`](src/csbench/adapters/bm25.py).
@@ -112,7 +116,7 @@ when its fingerprint still matches.
 
 | Tool | Status |
 |---|---|
-| grep baseline, BM25 baseline | in v1 |
+| grep, grep-distinct and BM25 baselines | in v1 |
 | [semble](https://github.com/MinishLab/semble) | M1 |
 | [graphify](https://github.com/Graphify-Labs/graphify) | M2, deterministic AST code mode only |
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) | M2, only if it can be queried without an LLM |
