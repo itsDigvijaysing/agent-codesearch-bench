@@ -67,9 +67,14 @@ def _value(rec: dict, key: str) -> float | None:
 
 
 def summarize(cfg: Config, records: dict[str, list[dict]]) -> tuple[list[dict], list[dict], list]:
-    """Return summary rows, paired rows and the common task list."""
+    """Return summary rows, paired rows and the tasks every tool has a record for."""
+    empty = [t for t, recs in records.items() if not recs]
+    if not records or empty:
+        raise ValueError(f"no records to report for: {', '.join(empty) or 'any tool'}; run first")
     common = set.intersection(*({r["task_id"] for r in recs} for recs in records.values()))
     order = [i for i in sample_ids(cfg) if i in common]
+    if not order:
+        raise ValueError("the tools share no evaluated task; run them on the same tasks")
     boot = cfg["bootstrap"]
     kw = {"n_boot": boot["n_boot"], "seed": boot["seed"]}
     by_tool = {t: {r["task_id"]: r for r in recs} for t, recs in records.items()}
