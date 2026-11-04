@@ -128,7 +128,10 @@ def resolve_hits(repo: Path, hits: list[dict], encoder_name: str) -> list[Resolv
             continue
         start = max(1, h.get("start") or 1)
         end = min(len(lines), h.get("end") or len(lines))
-        counts = tuple(len(t) for t in enc.encode_ordinary_batch(lines[start - 1 : end]))
+        # Count the text the tool returned when it reports it (a chunk can be a slice of one
+        # very long line, e.g. minified code); otherwise the lines it points to.
+        segments = h["text"].splitlines(keepends=True) if h.get("text") else lines[start - 1 : end]
+        counts = tuple(len(t) for t in enc.encode_ordinary_batch(segments))
         out.append(ResolvedHit(rel, start, end, counts))
     return out
 

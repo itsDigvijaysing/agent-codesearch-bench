@@ -6,16 +6,25 @@ revision and passed with the documented ``model_path`` argument; it is downloade
 ``prepare()``, outside the timed build. The built index is written with the public
 ``SembleIndex.save`` (as the CLI caches it on first run), so build time includes saving and the
 index size is measured. ``SEMBLE_CACHE_LOCATION`` points at the per-task index directory, so no
-cached index is ever reused across tasks.
+cached index is ever reused across tasks. Tokens are counted on the chunk text semble returns
+(a chunk can be a slice of one long line, as in minified code).
 """
 
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
 
 from csbench.adapters.base import Adapter, Hit
+
+
+@dataclass(frozen=True)
+class TextHit(Hit):
+    """A hit that carries the chunk text semble returned, so tokens are counted on it."""
+
+    text: str = ""
 
 
 class SembleAdapter(Adapter):
@@ -42,6 +51,12 @@ class SembleAdapter(Adapter):
 
     def search(self, query: str, top_k: int) -> list[Hit]:
         return [
-            Hit(r.chunk.file_path, r.chunk.start_line, r.chunk.end_line, float(r.score))
+            TextHit(
+                r.chunk.file_path,
+                r.chunk.start_line,
+                r.chunk.end_line,
+                float(r.score),
+                r.chunk.content,
+            )
             for r in self.index.search(query, top_k=top_k)
         ]

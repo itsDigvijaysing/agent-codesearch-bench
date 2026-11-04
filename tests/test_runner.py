@@ -16,6 +16,20 @@ def test_resolve_hits_clips_and_handles_missing(tmp_path):
     assert r[2].file == "missing.py" and r[2].tokens == 0
 
 
+def test_resolve_hits_counts_returned_text(tmp_path):
+    (tmp_path / "min.js").write_text("var a=1;" * 2000 + "\n")
+    whole, sliced = resolve_hits(
+        tmp_path,
+        [
+            {"file": "min.js", "start": 1, "end": 1},
+            {"file": "min.js", "start": 1, "end": 1, "text": "var a=1;"},
+        ],
+        "o200k_base",
+    )
+    assert whole.tokens > 1000 and 0 < sliced.tokens < 10
+    assert (sliced.start, sliced.end) == (1, 1)
+
+
 def test_worker_runs_in_subprocess(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
