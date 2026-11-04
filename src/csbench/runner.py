@@ -147,6 +147,23 @@ def metric_kwargs(cfg: Config) -> dict:
     }
 
 
+def prepare(cfg: Config, spec: ToolSpec) -> None:
+    """Run the adapter's one-time setup (e.g. pinned model download) outside any timing."""
+    tmp = cfg.path("cache") / "tmp"
+    tmp.mkdir(parents=True, exist_ok=True)
+    out = run_worker(
+        {
+            "adapter": spec.adapter,
+            "params": spec.params,
+            "prepare_only": True,
+            "out": str(tmp / f"{spec.name}__prepare.json"),
+        },
+        float(cfg["timeout_s"]),
+    )
+    if out["status"] != "ok":
+        log(f"{spec.name}: prepare failed: {out.get('error')}")
+
+
 def evaluate_pair(cfg: Config, spec: ToolSpec, task: Task, repo_dir: Path) -> dict:
     index_dir = cfg.path("cache") / "index" / spec.name / task.instance_id
     shutil.rmtree(index_dir, ignore_errors=True)
@@ -209,6 +226,7 @@ def run(
     committed = {s.name: committed_records(cfg, s.name) if use_committed else {} for s in specs}
     cache_dir = cfg.path("cache")
     done = 0
+    prepared: set[str] = set()
     for n, task in enumerate(selected_tasks(cfg, limit), 1):
         pending = []
         for s in specs:
@@ -230,6 +248,9 @@ def run(
                 write_record(cfg, failed_checkout(cfg, s, task, msg))
             continue
         for s in pending:
+            if s.name not in prepared:
+                prepare(cfg, s)
+                prepared.add(s.name)
             rec = evaluate_pair(cfg, s, task, work)
             write_record(cfg, rec)
             done += 1

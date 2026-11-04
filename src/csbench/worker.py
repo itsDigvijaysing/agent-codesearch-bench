@@ -37,6 +37,11 @@ def main(spec_path: str) -> int:
     try:
         adapter = get_adapter(spec["adapter"])(**spec.get("params", {}))
         out["version"] = adapter.version()
+        if spec.get("prepare_only"):
+            adapter.prepare()
+            out["status"] = "ok"
+            Path(spec["out"]).write_text(json.dumps(out))
+            return 0
         index_dir = Path(spec["index_dir"])
         index_dir.mkdir(parents=True, exist_ok=True)
         t0 = time.perf_counter()

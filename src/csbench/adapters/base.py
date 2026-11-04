@@ -26,6 +26,9 @@ class Adapter:
     def version(self) -> str:
         raise NotImplementedError
 
+    def prepare(self) -> None:
+        """One-time setup outside timing, such as downloading a pinned model."""
+
     def build(self, repo: Path, index_dir: Path) -> None:
         """Build any index. ``index_dir`` is measured for index size afterwards."""
 
