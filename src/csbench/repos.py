@@ -1,7 +1,8 @@
 """Checkouts of target repositories at a task's base commit.
 
 One blobless bare clone per repository (``git clone --bare --filter=blob:none``) is shared by
-all tasks; each task gets a detached ``git worktree`` that is removed after the task.
+all tasks; each task gets a detached ``git worktree`` that is removed after the task. Local
+repositories (``csbench try``) are cloned without a filter.
 """
 
 from __future__ import annotations
@@ -23,7 +24,13 @@ def checkout(cache: Path, repo: str, url: str, commit: str, dest: Path) -> Path:
     bare = bare_path(cache, repo)
     if not bare.exists():
         bare.parent.mkdir(parents=True, exist_ok=True)
-        _git("clone", "--quiet", "--bare", "--filter=blob:none", url, str(bare))
+        if Path(url).is_dir():
+            # A local repository: plain local clone (hardlinked objects). A blob filter here
+            # would make the user's repository a lazy-fetch source, which can fork-storm when
+            # that repository is itself shallow or partial.
+            _git("clone", "--quiet", "--bare", "--no-hardlinks", url, str(bare))
+        else:
+            _git("clone", "--quiet", "--bare", "--filter=blob:none", url, str(bare))
     try:
         _git("--git-dir", str(bare), "cat-file", "-e", f"{commit}^{{commit}}")
     except subprocess.CalledProcessError:

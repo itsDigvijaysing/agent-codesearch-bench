@@ -4,10 +4,29 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+
+
+def project_root() -> Path:
+    """The checkout root, or the configs bundled into an installed package (``uvx``)."""
+    here = Path(__file__).resolve().parent
+    for candidate in (here.parent.parent, here / "_project"):
+        if (candidate / "configs" / "tools.yaml").exists():
+            return candidate
+    raise FileNotFoundError("configs/tools.yaml not found; run from a checkout")
+
+
+def cache_root(root: Path) -> Path:
+    """``$CSBENCH_CACHE``, else ``.cache`` in a checkout, else ``~/.cache/csbench``."""
+    if env := os.environ.get("CSBENCH_CACHE"):
+        return Path(env)
+    if (root / "pyproject.toml").exists() and os.access(root, os.W_OK):
+        return root / ".cache"
+    return Path.home() / ".cache" / "csbench"
 
 
 @dataclass(frozen=True)

@@ -301,6 +301,7 @@ def run(
     retry_failed: bool = False,
     time_budget_s: float | None = None,
     use_committed: bool = True,
+    tasks: list[Task] | None = None,
 ) -> tuple[int, bool]:
     """Evaluate pending (tool, task) pairs; return (pairs evaluated, whether all are done)."""
     started = time.monotonic()
@@ -309,7 +310,7 @@ def run(
     cache_dir = cfg.path("cache")
     done = 0
     prepared: set[str] = set()
-    for n, task in enumerate(selected_tasks(cfg, limit), 1):
+    for n, task in enumerate(tasks or selected_tasks(cfg, limit), 1):
         pending = []
         for s in specs:
             rec = load_record(cfg, s, task.instance_id, committed[s.name])

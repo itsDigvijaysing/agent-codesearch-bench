@@ -228,7 +228,12 @@ def update_readme(cfg: Config, table: str) -> bool:
     return True
 
 
-def write(cfg: Config, tools: list[str] | None = None, use_committed: bool = True) -> Path:
+def write(
+    cfg: Config,
+    tools: list[str] | None = None,
+    use_committed: bool = True,
+    readme: bool = True,
+) -> Path:
     records = collect(cfg, tools, use_committed)
     out = cfg.path("results") / cfg.run_name
     (out / "per_task").mkdir(parents=True, exist_ok=True)
@@ -242,7 +247,8 @@ def write(cfg: Config, tools: list[str] | None = None, use_committed: bool = Tru
     _csv(out / f"paired_vs_{cfg['bootstrap']['baseline']}.csv", paired)
     (out / "summary.md").write_text(markdown(cfg, rows, paired, order, records))
     plots.write(rows, len(order), out / "plots")
-    update_readme(cfg, headline(cfg, rows, order))
+    if readme:
+        update_readme(cfg, headline(cfg, rows, order))
     return out
 
 

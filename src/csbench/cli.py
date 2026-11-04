@@ -1,5 +1,8 @@
 """Command line: ``csbench {sample,lock,upgrade,run,report,all} --config configs/v1.yaml``.
 
+Your own project: ``csbench try PATH`` mines tasks from the repository's git history and
+ranks the tools on them (see ``tryrepo.py``).
+
 Track B: ``csbench trackb-requests --arm ARM`` prints one session request per line (JSON);
 ``csbench trackb-report`` scores the saved sessions.
 
@@ -28,11 +31,15 @@ def main(argv: list[str] | None = None) -> int:
             "run",
             "report",
             "all",
+            "try",
             "trackb-requests",
             "trackb-report",
         ],
     )
+    ap.add_argument("path", nargs="?", help="repository to benchmark (try)")
     ap.add_argument("--config", default="configs/v1.yaml")
+    ap.add_argument("--commits", type=int, default=20, help="tasks to mine (try)")
+    ap.add_argument("--out", help="output directory (try; default ./csbench-try-<name>)")
     ap.add_argument("--tools", nargs="+", help="subset of tools from the config")
     ap.add_argument("--limit", type=int, help="first N tasks of the sample")
     ap.add_argument("--retry-failed", action="store_true")
@@ -45,6 +52,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--trackb-config", default="configs/trackb.yaml")
     ap.add_argument("--arm", help="Track B arm for trackb-requests")
     args = ap.parse_args(argv)
+    budget = args.time_budget_min * 60 if args.time_budget_min else None
+    if args.command == "try":
+        from pathlib import Path
+
+        from csbench import tryrepo
+        from csbench.config import project_root
+
+        repo = Path(args.path or ".").resolve()
+        out = Path(args.out or f"csbench-try-{repo.name}")
+        result, complete = tryrepo.run(project_root(), repo, out, args.commits, args.tools, budget)
+        if not complete:
+            return 3
+        print((result / "summary.md").read_text())
+        return 0
     cfg = Config.load(args.config)
     if args.command == "sample":
         print(runner.write_sample(cfg))
@@ -81,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
             tools=args.tools,
             limit=args.limit,
             retry_failed=args.retry_failed,
-            time_budget_s=args.time_budget_min * 60 if args.time_budget_min else None,
+            time_budget_s=budget,
             use_committed=not args.fresh,
         )
         if not complete:

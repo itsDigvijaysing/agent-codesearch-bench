@@ -28,6 +28,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/csbench"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"configs" = "csbench/_project/configs"  # tool pins and lock files for `uvx ... csbench try`
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
