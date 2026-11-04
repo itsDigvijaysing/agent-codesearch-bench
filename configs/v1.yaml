@@ -1,5 +1,6 @@
 # One command reproduces every number: `make all` (= uv run csbench all --config configs/v1.yaml)
 run: v1
+readme_table: true     # this run's headline table is written into README.md
 dataset:
   repo_id: Contextbench/ContextBench
   revision: c2855792b006af41c67202d33883fb9d46362853
