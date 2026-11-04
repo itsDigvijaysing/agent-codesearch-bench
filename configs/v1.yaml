@@ -1,0 +1,31 @@
+# One command reproduces every number: `make all` (= uv run csbench all --config configs/v1.yaml)
+run: v1
+dataset:
+  repo_id: Contextbench/ContextBench
+  revision: c2855792b006af41c67202d33883fb9d46362853
+  config: contextbench_verified
+  file: data/contextbench_verified.parquet
+sample:
+  file: data/sample_v1.txt
+  language: python
+  max_repos: 10
+  n_tasks: 100
+  seed: 0
+tools_file: configs/tools.yaml
+tools: [grep, bm25]
+top_k: 10            # native results requested from each tool per query
+timeout_s: 1200      # per (tool, task) worker
+max_cache_gb: 20     # delete clones and indexes above this
+metrics:
+  ks: [1, 5, 10]
+  precision_ks: [5, 10]
+  budgets: [2000, 8000]
+  tokenizer: o200k_base
+bootstrap:
+  n_boot: 1000
+  seed: 42
+  baseline: grep
+paths:
+  cache: .cache
+  raw: data/raw
+  results: results
