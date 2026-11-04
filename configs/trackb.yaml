@@ -1,0 +1,28 @@
+# Track B: an agent (Claude Code cloud session) localizes the code an issue needs, with and
+# without each tool. Identical prompt for every arm; arms differ only in the tool setup line
+# and the tool's own documented agent instructions (appended to the system prompt).
+run: trackb-pilot
+model: claude-haiku-5-5
+tasks: {sample: data/sample_v1.txt, limit: 10}
+max_locations: 20
+prompt: |
+  You are in a checkout of {repo} at the commit where the issue below was reported.
+  Find the code that must be read or changed to fix this issue. Do not modify any file, do not
+  run the test suite, and do not use web search or web fetch.
+  {setup}
+  When you are done, end your reply with exactly one JSON code block of this form, listing the
+  most important locations first, at most {max_locations}:
+  ```json
+  {{"locations": [{{"file": "path/relative/to/repo/root", "start_line": 1, "end_line": 20}}]}}
+  ```
+
+  <issue>
+  {issue}
+  </issue>
+arms:
+  baseline:
+    setup: ""
+    instructions: null
+  semble:
+    setup: "Before you start, install the code search tool once with: uv tool install semble==0.7.2"
+    instructions: configs/trackb/semble.md
