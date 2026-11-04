@@ -1,4 +1,4 @@
-"""Command line: ``csbench {sample,run,report,all} --config configs/v1.yaml``."""
+"""Command line: ``csbench {sample,lock,run,report,all} --config configs/v1.yaml``."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from csbench.config import Config
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="csbench")
-    ap.add_argument("command", choices=["sample", "run", "report", "all"])
+    ap.add_argument("command", choices=["sample", "lock", "run", "report", "all"])
     ap.add_argument("--config", default="configs/v1.yaml")
     ap.add_argument("--tools", nargs="+", help="subset of tools from the config")
     ap.add_argument("--limit", type=int, help="first N tasks of the sample")
@@ -25,6 +25,11 @@ def main(argv: list[str] | None = None) -> int:
     cfg = Config.load(args.config)
     if args.command == "sample":
         print(runner.write_sample(cfg))
+        return 0
+    if args.command == "lock":
+        for spec in cfg.tools(args.tools):
+            if spec.env:
+                print(runner.lock_env(cfg, spec))
         return 0
     if args.command in ("run", "all"):
         runner.run(

@@ -19,12 +19,6 @@ csbench = "csbench.cli:main"
 
 [dependency-groups]
 dev = ["pytest==9.2.0", "ruff==0.17.3"]
-tools = [
-    "semble==0.7.2",
-]
-
-[tool.uv]
-default-groups = ["dev", "tools"]  # tools under test are always installed at their pins
 
 [build-system]
 requires = ["hatchling"]

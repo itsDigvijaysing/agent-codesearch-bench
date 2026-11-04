@@ -18,6 +18,7 @@ class ToolSpec:
     params: dict
     status: str  # "active", "planned", "excluded", "track_b"
     note: str = ""
+    env: str | None = None  # lock file (configs/envs/<tool>.txt) for an isolated tool venv
 
 
 @dataclass(frozen=True)
@@ -39,8 +40,9 @@ class Config:
     def fingerprint(self, spec: ToolSpec) -> str:
         """Changes whenever a stored result could change, so stale records are never reused.
 
-        Covers the tool definition, top_k, metric settings, dataset revision, and the source of
-        the adapter, the shared corpus rule and the metric code.
+        Covers the tool definition, top_k, metric settings, dataset revision, the tool's
+        environment lock file, and the source of the adapter, the shared corpus rule and the
+        metric code.
         """
         pkg = Path(__file__).parent
         sources = [
@@ -51,6 +53,8 @@ class Config:
             pkg / "metrics.py",
         ]
         settings = [spec.adapter, spec.pin, spec.params, self.raw["top_k"], self.raw["metrics"]]
+        if spec.env:
+            sources.append(self.root / spec.env)
         h = hashlib.sha256(
             json.dumps(settings + [self.raw["dataset"]["revision"]], sort_keys=True).encode()
         )
@@ -77,6 +81,7 @@ class Config:
                     params=d.get("params") or {},
                     status=d["status"],
                     note=d.get("note", ""),
+                    env=d.get("env"),
                 )
             )
         return out

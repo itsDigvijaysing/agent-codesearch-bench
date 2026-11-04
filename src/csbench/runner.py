@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
 import json
 import os
 import shutil
@@ -111,15 +112,67 @@ def resolve_hits(repo: Path, hits: list[dict], encoder_name: str) -> list[Resolv
     return out
 
 
-def run_worker(spec: dict, timeout: float) -> dict:
+def tool_python(cfg: Config, spec: ToolSpec) -> str:
+    """Interpreter for a tool: its own venv, installed exactly from its committed lock file.
+
+    Each tool gets the dependency versions its own users would get, independent of the
+    benchmark's environment and of the other tools. Baselines without ``env`` use this one.
+    """
+    if not spec.env:
+        return sys.executable
+    lock = cfg.root / spec.env
+    env_dir = cfg.path("cache") / "envs" / spec.name
+    marker = env_dir / ".csbench-lock-sha256"
+    digest = hashlib.sha256(lock.read_bytes()).hexdigest()
+    python = env_dir / "bin" / "python"
+    if not (marker.exists() and marker.read_text() == digest and python.exists()):
+        log(f"{spec.name}: creating environment from {spec.env}")
+        shutil.rmtree(env_dir, ignore_errors=True)
+        py = f"{sys.version_info.major}.{sys.version_info.minor}"
+        subprocess.run(["uv", "venv", "-q", "--python", py, str(env_dir)], check=True)
+        subprocess.run(["uv", "pip", "sync", "-q", "--python", str(python), str(lock)], check=True)
+        marker.write_text(digest)
+    return str(python)
+
+
+def lock_env(cfg: Config, spec: ToolSpec) -> Path:
+    """Resolve the tool's pin to a fully pinned, hashed, cross-platform lock file."""
+    out = cfg.root / spec.env
+    out.parent.mkdir(parents=True, exist_ok=True)
+    py = f"{sys.version_info.major}.{sys.version_info.minor}"
+    cmd = [
+        "uv",
+        "pip",
+        "compile",
+        "-q",
+        "--universal",
+        "--generate-hashes",
+        "--python-version",
+        py,
+        "--no-header",
+        "--output-file",
+        str(out),
+        "-",
+    ]
+    subprocess.run(cmd, input=spec.pin + "\n", text=True, check=True)
+    return out
+
+
+def run_worker(spec: dict, timeout: float, python: str = sys.executable) -> dict:
     """Run the worker in its own session; kill the whole group on timeout."""
     spec_path = Path(spec["out"]).with_suffix(".spec.json")
     spec_path.write_text(json.dumps(spec))
+    src = str(Path(__file__).resolve().parent.parent)  # makes csbench importable in tool venvs
+    env = {
+        **os.environ,
+        "PYTHONPATH": os.pathsep.join(filter(None, [src, os.environ.get("PYTHONPATH")])),
+    }
     proc = subprocess.Popen(
-        [sys.executable, "-m", "csbench.worker", str(spec_path)],
+        [python, "-m", "csbench.worker", str(spec_path)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         start_new_session=True,
+        env=env,
     )
     timer = threading.Timer(timeout, lambda: os.killpg(proc.pid, signal.SIGKILL))
     timer.start()
@@ -159,6 +212,7 @@ def prepare(cfg: Config, spec: ToolSpec) -> None:
             "out": str(tmp / f"{spec.name}__prepare.json"),
         },
         float(cfg["timeout_s"]),
+        tool_python(cfg, spec),
     )
     if out["status"] != "ok":
         log(f"{spec.name}: prepare failed: {out.get('error')}")
@@ -178,7 +232,7 @@ def evaluate_pair(cfg: Config, spec: ToolSpec, task: Task, repo_dir: Path) -> di
         "top_k": cfg["top_k"],
         "out": str(tmp / f"{spec.name}__{task.instance_id}.json"),
     }
-    result = run_worker(worker_spec, float(cfg["timeout_s"]))
+    result = run_worker(worker_spec, float(cfg["timeout_s"]), tool_python(cfg, spec))
     index_bytes = repos.dir_bytes(index_dir)
     shutil.rmtree(index_dir, ignore_errors=True)
 

@@ -1,4 +1,5 @@
 # Pinned tools. status: active (in Track A runs), planned, excluded, track_b.
+# Tools with `env` run in their own venv installed from that lock file (`csbench lock`).
 # Defaults first; a tuned configuration gets its own entry with a "-tuned" suffix.
 tools:
   grep:
@@ -20,6 +21,7 @@ tools:
   semble:
     adapter: semble
     pin: "semble==0.7.2"
+    env: configs/envs/semble.txt
     status: active
     params:
       model: minishlab/potion-code-16M-v2     # semble's default model, pinned revision
