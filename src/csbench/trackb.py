@@ -25,11 +25,11 @@ from csbench.metrics import ResolvedHit, bootstrap_ci, paired_bootstrap, task_me
 RECORD_FIELDS = (
     "task_id", "arm", "session_id", "model", "status", "result_text",
     "input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens",
-    "num_turns", "duration_s", "cost_usd",
+    "num_turns", "duration_s", "cost_usd", "web_requests",
 )  # fmt: skip
 QUALITY = ["file_recall@1", "file_recall@5", "file_recall@10", "mrr", "span_recall",
            "span_precision"]  # fmt: skip
-COST = ["total_tokens", "num_turns", "duration_s"]
+COST = ["total_tokens", "output_tokens", "num_turns", "duration_s", "cost_usd"]
 _JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 
 
@@ -102,7 +102,9 @@ def score(task: Task, record: dict, limit: int) -> dict:
     tokens = sum(record.get(k) or 0 for k in RECORD_FIELDS if k.endswith("_tokens"))
     return m | {
         "total_tokens": float(tokens) if ok else None,
+        "output_tokens": float(record.get("output_tokens") or 0) if ok else None,
         "num_turns": float(record.get("num_turns") or 0) if ok else None,
+        "cost_usd": float(record.get("cost_usd") or 0) if ok else None,
         "duration_s": float(record.get("duration_s") or 0) if ok else None,
         "n_locations": len(locs),
         "ok": ok,
@@ -129,7 +131,9 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
         f"# Track B: {cfg['run']}",
         "",
         f"Model `{cfg['model']}`; {len(common)} tasks with a finished session in every arm. "
-        "Means with 95% bootstrap CIs (B = 1000, seed 42); cost over successful sessions.",
+        "Means with 95% bootstrap CIs (B = 1000, seed 42); cost over successful sessions. "
+        "total_tokens counts input, output and cache read and write tokens as reported by the "
+        "session; cost_usd is the session's own list-price cost.",
         "",
         "| Arm | Done | " + " | ".join(QUALITY + COST) + " |",
         "|" + "---|" * (2 + len(QUALITY) + len(COST)),
@@ -143,7 +147,7 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
                 cells.append("n/a")
                 continue
             mean, lo, hi = bootstrap_ci(np.array(vals))
-            fmt = "{:.3f}" if key in QUALITY else "{:,.0f}"
+            fmt = "{:.3f}" if key in QUALITY or key == "cost_usd" else "{:,.0f}"
             cells.append(f"{fmt.format(mean)} [{fmt.format(lo)}, {fmt.format(hi)}]")
         done = f"{sum(r['ok'] for r in rows)}/{len(rows)}"
         lines.append(f"| {arm} | {done} | " + " | ".join(cells) + " |")
