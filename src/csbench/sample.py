@@ -57,3 +57,46 @@ def select(
         chosen.extend(rng.sample(ids, alloc[repo]))
     rng.shuffle(chosen)
     return chosen
+
+
+def select_hard(
+    tasks: list[Task],
+    *,
+    exclude: set[str],
+    repo_files: dict[str, int],
+    min_gold_files: int,
+    min_repo_files: int,
+    per_repo: int,
+    seed: int,
+) -> list[str]:
+    """Hard split: multi-file gold context in large repositories, any language.
+
+    Rule: tasks not in ``exclude`` whose gold context spans at least ``min_gold_files``
+    files, in repositories with at least ``min_repo_files`` tracked files (``repo_files``,
+    counted at the base commit of the repository's first candidate task by instance id); at
+    most ``per_repo`` tasks per repository drawn with ``random.Random(seed)`` from the sorted
+    ids (repositories in name order), then shuffled with the same generator.
+    """
+    pool = [
+        t
+        for t in tasks
+        if t.instance_id not in exclude
+        and len(t.gold_files) >= min_gold_files
+        and repo_files.get(t.repo, 0) >= min_repo_files
+    ]
+    rng = random.Random(seed)
+    chosen: list[str] = []
+    for repo in sorted({t.repo for t in pool}):
+        ids = sorted(t.instance_id for t in pool if t.repo == repo)
+        chosen.extend(rng.sample(ids, min(per_repo, len(ids))))
+    rng.shuffle(chosen)
+    return chosen
+
+
+def first_candidates(tasks: list[Task], exclude: set[str], min_gold_files: int) -> dict:
+    """The task whose base commit is used to measure each candidate repository's size."""
+    first: dict[str, Task] = {}
+    for t in sorted(tasks, key=lambda t: t.instance_id):
+        if t.instance_id not in exclude and len(t.gold_files) >= min_gold_files:
+            first.setdefault(t.repo, t)
+    return first

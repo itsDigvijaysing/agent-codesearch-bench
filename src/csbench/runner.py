@@ -21,7 +21,7 @@ from csbench.config import Config, ToolSpec
 from csbench.dataset import Task, download, load_tasks, normalize_path
 from csbench.files import read_lines
 from csbench.metrics import ResolvedHit, ranked_files, task_metrics, zero_metrics
-from csbench.sample import select
+from csbench.sample import first_candidates, select, select_hard
 
 STORED_HITS = 50  # hits kept per record; metrics are computed on all hits
 
@@ -52,13 +52,33 @@ def sample_ids(cfg: Config) -> list[str]:
 
 def write_sample(cfg: Config) -> Path:
     s = cfg["sample"]
-    ids = select(
-        load_tasks(dataset_path(cfg)),
-        language=s["language"],
-        max_repos=s["max_repos"],
-        n_tasks=s["n_tasks"],
-        seed=s["seed"],
-    )
+    tasks = load_tasks(dataset_path(cfg))
+    if s.get("kind") == "hard":
+        exclude = set((cfg.root / s["exclude"]).read_text().split())
+        firsts = first_candidates(tasks, exclude, s["min_gold_files"])
+        sizes = {
+            repo: repos.count_files(cfg.path("cache"), repo, t.repo_url, t.base_commit)
+            for repo, t in firsts.items()
+        }
+        for repo, n in sorted(sizes.items(), key=lambda x: -x[1]):
+            log(f"{repo}: {n} tracked files")
+        ids = select_hard(
+            tasks,
+            exclude=exclude,
+            repo_files=sizes,
+            min_gold_files=s["min_gold_files"],
+            min_repo_files=s["min_repo_files"],
+            per_repo=s["per_repo"],
+            seed=s["seed"],
+        )
+    else:
+        ids = select(
+            tasks,
+            language=s["language"],
+            max_repos=s["max_repos"],
+            n_tasks=s["n_tasks"],
+            seed=s["seed"],
+        )
     path = cfg.root / s["file"]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(ids) + "\n")

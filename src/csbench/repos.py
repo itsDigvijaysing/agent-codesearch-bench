@@ -47,3 +47,17 @@ def dir_bytes(path: Path) -> int:
     if path.is_file():
         return path.stat().st_size
     return sum(p.lstat().st_size for p in path.rglob("*") if p.is_file() and not p.is_symlink())
+
+
+def count_files(cache: Path, repo: str, url: str, commit: str) -> int:
+    """Tracked files at ``commit``, from a shallow tree-only fetch of that one commit."""
+    git_dir = cache / "sizes" / (repo.replace("/", "__") + ".git")
+    if not git_dir.exists():
+        _git("init", "--quiet", "--bare", str(git_dir))
+    try:
+        _git("--git-dir", str(git_dir), "cat-file", "-e", f"{commit}^{{commit}}")
+    except subprocess.CalledProcessError:
+        _git("--git-dir", str(git_dir), "fetch", "--quiet", "--depth", "1",
+             "--filter=blob:none", url, commit)  # fmt: skip
+    out = _git("--git-dir", str(git_dir), "ls-tree", "-r", "--name-only", commit).stdout
+    return len(out.splitlines())
