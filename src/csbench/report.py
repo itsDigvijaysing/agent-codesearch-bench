@@ -84,6 +84,7 @@ def summarize(cfg: Config, records: dict[str, list[dict]]) -> tuple[list[dict], 
     for tool, recs in by_tool.items():
         task_recs = [recs[i] for i in order]
         failed = sum(r["status"] != "ok" for r in task_recs)
+        empty = sum(r["status"] == "ok" and r.get("n_hits", 1) == 0 for r in task_recs)
         versions = sorted({r["version"] for r in task_recs if r.get("version")})
         row = {
             "tool": tool,
@@ -91,6 +92,7 @@ def summarize(cfg: Config, records: dict[str, list[dict]]) -> tuple[list[dict], 
             "n_tasks": len(order),
             "n_failed": failed,
             "failure_rate": failed / len(order),
+            "n_empty": empty,
         }
         for key in quality + COST:
             vals = [v for v in (_value(r, key) for r in task_recs) if v is not None]
@@ -132,19 +134,21 @@ def markdown(
         f"Dataset `{d['repo_id']}` ({d['config']}) at revision `{d['revision'][:12]}`; "
         f"{len(order)} tasks from `{cfg['sample']['file']}`; top_k={cfg['top_k']}. "
         f"Means with 95% bootstrap CIs (B={b['n_boot']}, seed {b['seed']}); failed tasks "
-        "score zero on quality metrics. "
+        "score zero on quality metrics; Empty counts successful queries that returned nothing. "
         "n/a: not applicable (span metrics need line spans; token-budget recall needs returned "
         "code). Cost metrics are over successful tasks.",
         "",
         "## Retrieval quality",
         "",
-        "| Tool | Version | Fail | " + " | ".join(h for _, h in TABLE) + " |",
-        "|" + "---|" * (3 + len(TABLE)),
+        "| Tool | Version | Fail | Empty | " + " | ".join(h for _, h in TABLE) + " |",
+        "|" + "---|" * (4 + len(TABLE)),
     ]
     for r in rows:
         cells = [_fmt(r, k) for k, _ in TABLE]
-        fail = f"{r['n_failed']}/{r['n_tasks']}"
-        lines.append(f"| {r['tool']} | {r['version']} | {fail} | " + " | ".join(cells) + " |")
+        fail, empty = f"{r['n_failed']}/{r['n_tasks']}", f"{r['n_empty']}/{r['n_tasks']}"
+        lines.append(
+            f"| {r['tool']} | {r['version']} | {fail} | {empty} | " + " | ".join(cells) + " |"
+        )
     lines += [
         "",
         "## Cost",
