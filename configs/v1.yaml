@@ -12,7 +12,7 @@ sample:
   n_tasks: 100
   seed: 0
 tools_file: configs/tools.yaml
-tools: [grep, bm25]
+tools: [grep, grep-distinct, bm25]
 top_k: 10            # native results requested from each tool per query
 timeout_s: 1200      # per (tool, task) worker
 max_cache_gb: 20     # delete clones and indexes above this

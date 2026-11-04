@@ -6,6 +6,12 @@ tools:
     pin: "ripgrep 14.1.0"   # system binary; the version actually used is recorded per task
     status: active
     params: {context: 3, max_terms: 64}
+  grep-distinct:
+    adapter: grep
+    pin: "ripgrep 14.1.0"
+    status: active
+    params: {context: 3, max_terms: 64, rank: distinct}
+    note: "Same terms as grep; files ranked by distinct terms matched first, then hits."
   bm25:
     adapter: bm25
     pin: "bm25s==0.3.16"
