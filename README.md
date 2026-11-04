@@ -6,13 +6,10 @@ costs in tokens, time and memory.
 
 ## Why
 
-People keep asking for independent numbers, and tool authors say none exist:
-
-- r/ClaudeAI, graphify launch thread: "Do you have benchmarks to show realistic expectations?"
-  <https://www.reddit.com/r/ClaudeAI/comments/1ui6unv>
-- r/ClaudeAI, semble launch thread: "would use a real benchmark not their own self
-  validation"; semble's author replied: "None of the methods we benchmarked had any kind of
-  decent benchmark." <https://www.reddit.com/r/ClaudeAI/comments/1szvo7t>
+Users of these tools keep asking for independent numbers, and tool authors have said there is
+no good benchmark to compare against. See the discussions in the r/ClaudeAI launch threads for
+[graphify](https://www.reddit.com/r/ClaudeAI/comments/1ui6unv) and
+[semble](https://www.reddit.com/r/ClaudeAI/comments/1szvo7t).
 
 **Neutrality.** This project has no affiliation with any tool it evaluates. Every tool runs
 with its documented interface and default settings first; tuned settings are labelled
