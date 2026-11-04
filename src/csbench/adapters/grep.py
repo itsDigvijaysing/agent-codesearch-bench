@@ -14,9 +14,10 @@ in this order, case-sensitive):
 Terms shorter than 3 characters are dropped, duplicates removed keeping first occurrence, and
 at most ``max_terms`` (default 64) are kept. ripgrep searches all terms as fixed strings in one
 pass over the checkout (hidden files included, ``.git`` excluded, ``.gitignore`` respected,
-files over 1 MB skipped). Files are ranked by total hit count, ties broken by number of
-distinct terms matched, then path. Each returned file contributes its hit lines with
-``context`` lines (default 3) on each side, merged.
+files over 1 MB skipped). With ``rank: hits`` (default) files are ranked by total hit count,
+ties broken by number of distinct terms matched, then path; ``rank: distinct`` sorts by
+distinct terms matched first, then hit count, then path. Each returned file contributes its
+hit lines with ``context`` lines (default 3) on each side, merged.
 """
 
 from __future__ import annotations
@@ -119,7 +120,10 @@ class GrepAdapter(Adapter):
             hits[path] += len(subs)
             distinct[path].update(s["match"].get("text", "") for s in subs)
             lines[path].append(data["line_number"])
-        ranked = sorted(hits, key=lambda f: (-hits[f], -len(distinct[f]), f))[:top_k]
+        if self.params.get("rank", "hits") == "distinct":
+            ranked = sorted(hits, key=lambda f: (-len(distinct[f]), -hits[f], f))[:top_k]
+        else:
+            ranked = sorted(hits, key=lambda f: (-hits[f], -len(distinct[f]), f))[:top_k]
         out: list[Hit] = []
         for f in ranked:
             windows = merge([(max(1, n - context), n + context) for n in lines[f]])

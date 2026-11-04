@@ -88,6 +88,18 @@ def test_grep_adapter_ranks_by_hits(repo, tmp_path):
     assert (hits[0].start, hits[0].end) == (1, 2)
 
 
+@pytest.mark.skipif(shutil.which("rg") is None, reason="ripgrep not installed")
+def test_grep_distinct_ranking(repo, tmp_path):
+    (repo / "pkg" / "many.py").write_text("QuerySet\n" * 5)
+    query = "QuerySet fails in bulk_update"
+    by_hits = GrepAdapter(context=0)
+    by_distinct = GrepAdapter(context=0, rank="distinct")
+    for a in (by_hits, by_distinct):
+        a.build(repo, tmp_path / "idx")
+    assert by_hits.search(query, top_k=1)[0].file == "pkg/many.py"
+    assert by_distinct.search(query, top_k=1)[0].file == "pkg/models.py"
+
+
 def test_bm25_adapter(repo, tmp_path):
     a = BM25Adapter(chunk_lines=10)
     a.build(repo, tmp_path / "idx")
