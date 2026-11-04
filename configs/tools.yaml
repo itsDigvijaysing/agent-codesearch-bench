@@ -1,0 +1,38 @@
+# Pinned tools. status: active (in Track A runs), planned, excluded, track_b.
+# Defaults first; a tuned configuration gets its own entry with a "-tuned" suffix.
+tools:
+  grep:
+    adapter: grep
+    pin: "ripgrep 14.1.0"   # system binary; the version actually used is recorded per task
+    status: active
+    params: {context: 3, max_terms: 64}
+  bm25:
+    adapter: bm25
+    pin: "bm25s==0.3.16"
+    status: active
+    params: {chunk_lines: 50, k1: 1.5, b: 0.75}
+  semble:
+    adapter: semble
+    pin: "semble==0.7.2"
+    status: planned
+    note: "M1: CLI `semble search <query> <repo> --top-k K` or Python API (SembleIndex)."
+  graphify:
+    adapter: graphify
+    pin: "TBD"
+    status: planned
+    note: "M2: deterministic AST code mode only; excluded if retrieval needs an LLM."
+  code-review-graph:
+    adapter: code-review-graph
+    pin: "TBD"
+    status: planned
+    note: "M2: included only if a query interface works without an LLM."
+  serena:
+    adapter: none
+    pin: "TBD"
+    status: track_b
+    note: "Agent-driven symbolic navigation, not free-text retrieval; evaluated in Track B."
+  claude-context:
+    adapter: none
+    pin: "TBD"
+    status: planned
+    note: "v2: needs a Milvus instance and an embedding API key."

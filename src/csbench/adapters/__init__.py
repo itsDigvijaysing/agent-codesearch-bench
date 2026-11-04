@@ -1,0 +1,16 @@
+from csbench.adapters.base import Adapter, Hit
+
+
+def get_adapter(name: str) -> type[Adapter]:
+    if name == "grep":
+        from csbench.adapters.grep import GrepAdapter
+
+        return GrepAdapter
+    if name == "bm25":
+        from csbench.adapters.bm25 import BM25Adapter
+
+        return BM25Adapter
+    raise KeyError(f"unknown adapter: {name}")
+
+
+__all__ = ["Adapter", "Hit", "get_adapter"]
