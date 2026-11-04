@@ -1,3 +1,4 @@
+import json
 import shutil
 import subprocess
 
@@ -111,9 +112,10 @@ def test_bm25_adapter(repo, tmp_path):
 def test_registry():
     from csbench.adapters import get_adapter
 
-    for name in ["grep", "bm25", "semble", "graphify"]:
+    for name in ["grep", "bm25", "semble", "graphify", "code-review-graph"]:
         assert get_adapter(name).name == name
     assert not get_adapter("graphify").returns_code and not get_adapter("graphify").has_spans
+    assert get_adapter("code-review-graph").has_spans
     with pytest.raises(KeyError):
         get_adapter("nope")
 
@@ -132,3 +134,24 @@ def test_graphify_parse_nodes():
         ("src/report.py", 1, 1),
         ("src/my dir/metrics.py", 112, 112),
     ]
+
+
+def test_code_review_graph_parse_results(tmp_path):
+    from csbench.adapters.code_review_graph import parse_results
+
+    out = "INFO: ready\n" + json.dumps(
+        {
+            "status": "ok",
+            "results": [
+                {
+                    "file_path": str(tmp_path / "pkg" / "m.py"),
+                    "line_start": 3,
+                    "line_end": 9,
+                    "score": 0.5,
+                },
+                {"file_path": "rel.py", "line_start": 4, "line_end": None, "score": None},
+            ],
+        }
+    )
+    hits = parse_results(out, tmp_path)
+    assert [(h.file, h.start, h.end) for h in hits] == [("pkg/m.py", 3, 9), ("rel.py", 4, 4)]

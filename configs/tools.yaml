@@ -35,9 +35,10 @@ tools:
     note: "CLI: extract --code-only with GRAPHIFY_BACKEND=none (AST only), query defaults."
   code-review-graph:
     adapter: code-review-graph
-    pin: "TBD"
-    status: planned
-    note: "M2: included only if a query interface works without an LLM."
+    pin: "code-review-graph==2.3.9"
+    env: configs/envs/code-review-graph.txt
+    status: active
+    note: "CLI: build, then search --limit K (keyword FTS5; no embeddings, no LLM)."
   serena:
     adapter: none
     pin: "TBD"

@@ -18,6 +18,10 @@ def get_adapter(name: str) -> type[Adapter]:
         from csbench.adapters.graphify import GraphifyAdapter
 
         return GraphifyAdapter
+    if name == "code-review-graph":
+        from csbench.adapters.code_review_graph import CodeReviewGraphAdapter
+
+        return CodeReviewGraphAdapter
     raise KeyError(f"unknown adapter: {name}")
 
 
