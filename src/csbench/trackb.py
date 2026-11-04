@@ -26,7 +26,10 @@ RECORD_FIELDS = (
     "task_id", "arm", "session_id", "model", "status", "result_text",
     "input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens",
     "num_turns", "duration_s", "cost_usd", "web_requests",
+    "permission_denials", "tool_calls",
 )  # fmt: skip
+# tool_calls: number of the arm tool's commands the agent actually ran (None for baseline or
+# when not collected); permission_denials: tool calls the session's permission check blocked.
 QUALITY = ["file_recall@1", "file_recall@5", "file_recall@10", "mrr", "span_recall",
            "span_precision"]  # fmt: skip
 COST = ["total_tokens", "output_tokens", "num_turns", "duration_s", "cost_usd"]
@@ -121,6 +124,7 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
     run_dir = root / ".cache" / "trackb" / cfg["run"]
     by_task = {t.instance_id: t for t in tasks(cfg, root, parquet)}
     scored: dict[str, dict[str, dict]] = {}
+    raw: dict[str, dict[str, dict]] = {}
     records = []
     for arm in cfg["arms"]:
         for path in sorted((run_dir / arm).glob("*.json")):
@@ -129,6 +133,7 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
                 continue
             s = score(by_task[rec["task_id"]], rec, cfg["max_locations"])
             scored.setdefault(arm, {})[rec["task_id"]] = s
+            raw.setdefault(arm, {})[rec["task_id"]] = rec
             records.append({k: rec.get(k) for k in RECORD_FIELDS if k != "result_text"} | s)
     arms = [a for a in cfg["arms"] if a in scored]
     common = sorted(set.intersection(*(set(scored[a]) for a in arms))) if arms else []
@@ -138,10 +143,12 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
         f"Model `{cfg['model']}`; {len(common)} tasks with a finished session in every arm. "
         "Means with 95% bootstrap CIs (B = 1000, seed 42); cost over successful sessions. "
         "total_tokens counts input, output and cache read and write tokens as reported by the "
-        "session; cost_usd is the session's own list-price cost.",
+        "session; cost_usd is the session's own list-price cost. Tool used: sessions that ran "
+        "the arm's tool at least once (where collected); Blocked: sessions with a call blocked "
+        "by the permission check.",
         "",
-        "| Arm | Done | " + " | ".join(QUALITY + COST) + " |",
-        "|" + "---|" * (2 + len(QUALITY) + len(COST)),
+        "| Arm | Done | Tool used | Blocked | " + " | ".join(QUALITY + COST) + " |",
+        "|" + "---|" * (4 + len(QUALITY) + len(COST)),
     ]
     for arm in arms:
         rows = [scored[arm][t] for t in common]
@@ -155,7 +162,11 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
             fmt = "{:.3f}" if key in QUALITY or key == "cost_usd" else "{:,.0f}"
             cells.append(f"{fmt.format(mean)} [{fmt.format(lo)}, {fmt.format(hi)}]")
         done = f"{sum(r['ok'] for r in rows)}/{len(rows)}"
-        lines.append(f"| {arm} | {done} | " + " | ".join(cells) + " |")
+        recs = [raw[arm][t] for t in common]
+        known = [r for r in recs if r.get("tool_calls") is not None]
+        used = f"{sum(r['tool_calls'] > 0 for r in known)}/{len(known)}" if known else "n/a"
+        blocked = sum(1 for r in recs if r.get("permission_denials"))
+        lines.append(f"| {arm} | {done} | {used} | {blocked} | " + " | ".join(cells) + " |")
     if "baseline" in arms and len(arms) > 1 and common:
         lines += [
             "",
