@@ -20,8 +20,11 @@ tools:
   semble:
     adapter: semble
     pin: "semble==0.7.2"
-    status: planned
-    note: "M1: CLI `semble search <query> <repo> --top-k K` or Python API (SembleIndex)."
+    status: active
+    params:
+      model: minishlab/potion-code-16M-v2     # semble's default model, pinned revision
+      model_revision: e9d2a44ca6a05ac6685f3b23709ea57eb7352d5b
+    note: "Python API SembleIndex.from_path(repo).search(query, top_k), default settings."
   graphify:
     adapter: graphify
     pin: "TBD"

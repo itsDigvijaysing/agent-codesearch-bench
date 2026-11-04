@@ -106,3 +106,12 @@ def test_bm25_adapter(repo, tmp_path):
     hits = a.search("bulk_update on a queryset", top_k=3)
     assert hits[0].file == "pkg/models.py" and hits[0].start == 21
     assert a.search("zzzz nothing", top_k=3) == []
+
+
+def test_registry_and_semble_version():
+    from csbench.adapters import get_adapter
+
+    semble = get_adapter("semble")(model="m", model_revision="r")
+    assert semble.version().startswith("semble ")
+    with pytest.raises(KeyError):
+        get_adapter("nope")

@@ -10,6 +10,10 @@ def get_adapter(name: str) -> type[Adapter]:
         from csbench.adapters.bm25 import BM25Adapter
 
         return BM25Adapter
+    if name == "semble":
+        from csbench.adapters.semble import SembleAdapter
+
+        return SembleAdapter
     raise KeyError(f"unknown adapter: {name}")
 
 
