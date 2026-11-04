@@ -2,8 +2,9 @@ CONFIG ?= configs/v1.yaml
 
 .PHONY: all sync check sample run report
 
+# Recompute every number from scratch (committed per-task records are ignored).
 all: sync
-	uv run csbench all --config $(CONFIG)
+	uv run csbench all --fresh --config $(CONFIG)
 
 sync:
 	uv sync --frozen
@@ -15,6 +16,7 @@ check:
 sample:
 	uv run csbench sample --config $(CONFIG)
 
+# Resume a run, reusing records committed in results/ (used for batched runs).
 run:
 	uv run csbench run --config $(CONFIG)
 

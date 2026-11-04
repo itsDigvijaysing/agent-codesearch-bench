@@ -16,6 +16,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--limit", type=int, help="first N tasks of the sample")
     ap.add_argument("--retry-failed", action="store_true")
     ap.add_argument("--time-budget-min", type=float, help="stop starting tasks after N minutes")
+    ap.add_argument(
+        "--fresh",
+        action="store_true",
+        help="ignore records committed in results/ and recompute every number",
+    )
     args = ap.parse_args(argv)
     cfg = Config.load(args.config)
     if args.command == "sample":
@@ -28,9 +33,10 @@ def main(argv: list[str] | None = None) -> int:
             limit=args.limit,
             retry_failed=args.retry_failed,
             time_budget_s=args.time_budget_min * 60 if args.time_budget_min else None,
+            use_committed=not args.fresh,
         )
     if args.command in ("report", "all"):
-        print(report.write(cfg, args.tools))
+        print(report.write(cfg, args.tools, use_committed=not args.fresh))
     return 0
 
 

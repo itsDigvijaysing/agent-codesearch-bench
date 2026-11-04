@@ -42,13 +42,15 @@ COST_TABLE = [
 ]
 
 
-def collect(cfg: Config, tools: list[str] | None = None) -> dict[str, list[dict]]:
+def collect(
+    cfg: Config, tools: list[str] | None = None, use_committed: bool = True
+) -> dict[str, list[dict]]:
     ids = sample_ids(cfg)
     out = {}
     for spec in cfg.tools(tools):
         if spec.status != "active":
             continue
-        committed = committed_records(cfg, spec.name)
+        committed = committed_records(cfg, spec.name) if use_committed else {}
         recs = [load_record(cfg, spec, i, committed) for i in ids]
         out[spec.name] = [r for r in recs if r is not None]
     return out
@@ -176,8 +178,8 @@ def markdown(
     return "\n".join(lines) + "\n"
 
 
-def write(cfg: Config, tools: list[str] | None = None) -> Path:
-    records = collect(cfg, tools)
+def write(cfg: Config, tools: list[str] | None = None, use_committed: bool = True) -> Path:
+    records = collect(cfg, tools, use_committed)
     out = cfg.path("results") / cfg.run_name
     (out / "per_task").mkdir(parents=True, exist_ok=True)
     for tool, recs in records.items():
