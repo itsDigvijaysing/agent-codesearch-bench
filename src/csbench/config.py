@@ -19,11 +19,6 @@ class ToolSpec:
     status: str  # "active", "planned", "excluded", "track_b"
     note: str = ""
 
-    def fingerprint(self, top_k: int) -> str:
-        """Changes whenever the result could change: adapter, pinned version, params, top_k."""
-        blob = json.dumps([self.adapter, self.pin, self.params, top_k], sort_keys=True)
-        return hashlib.sha256(blob.encode()).hexdigest()[:12]
-
 
 @dataclass(frozen=True)
 class Config:
@@ -40,6 +35,29 @@ class Config:
 
     def path(self, key: str) -> Path:
         return self.root / self.raw["paths"][key]
+
+    def fingerprint(self, spec: ToolSpec) -> str:
+        """Changes whenever a stored result could change, so stale records are never reused.
+
+        Covers the tool definition, top_k, metric settings, dataset revision, and the source of
+        the adapter, the shared corpus rule and the metric code.
+        """
+        pkg = Path(__file__).parent
+        sources = [
+            pkg / "adapters" / "base.py",
+            pkg / "adapters" / f"{spec.adapter.replace('-', '_')}.py",
+            pkg / "files.py",
+            pkg / "intervals.py",
+            pkg / "metrics.py",
+        ]
+        settings = [spec.adapter, spec.pin, spec.params, self.raw["top_k"], self.raw["metrics"]]
+        h = hashlib.sha256(
+            json.dumps(settings + [self.raw["dataset"]["revision"]], sort_keys=True).encode()
+        )
+        for src in sources:
+            if src.exists():
+                h.update(src.read_text().replace("\r\n", "\n").encode())
+        return h.hexdigest()[:12]
 
     @property
     def run_name(self) -> str:

@@ -73,6 +73,7 @@ def pair_path(cfg: Config, tool: str, task_id: str) -> Path:
 
 
 def committed_records(cfg: Config, tool: str) -> dict[str, dict]:
+    """Records already in ``results/``; they let a run resume across sessions."""
     path = cfg.path("results") / cfg.run_name / "per_task" / f"{tool}.jsonl.gz"
     if not path.exists():
         return {}
@@ -81,7 +82,7 @@ def committed_records(cfg: Config, tool: str) -> dict[str, dict]:
 
 
 def load_record(cfg: Config, spec: ToolSpec, task_id: str, committed: dict) -> dict | None:
-    fp = spec.fingerprint(cfg["top_k"])
+    fp = cfg.fingerprint(spec)
     p = pair_path(cfg, spec.name, task_id)
     rec = json.loads(p.read_text()) if p.exists() else committed.get(task_id)
     return rec if rec and rec.get("fingerprint") == fp else None
@@ -170,7 +171,7 @@ def evaluate_pair(cfg: Config, spec: ToolSpec, task: Task, repo_dir: Path) -> di
         "tool": spec.name,
         "task_id": task.instance_id,
         "repo": task.repo,
-        "fingerprint": spec.fingerprint(cfg["top_k"]),
+        "fingerprint": cfg.fingerprint(spec),
         "pin": spec.pin,
         "version": result.get("version"),
         "status": result["status"],
@@ -201,10 +202,11 @@ def run(
     limit: int | None = None,
     retry_failed: bool = False,
     time_budget_s: float | None = None,
+    use_committed: bool = True,
 ) -> int:
     started = time.monotonic()
     specs = [s for s in cfg.tools(tools) if s.status == "active"]
-    committed = {s.name: committed_records(cfg, s.name) for s in specs}
+    committed = {s.name: committed_records(cfg, s.name) if use_committed else {} for s in specs}
     cache_dir = cfg.path("cache")
     done = 0
     for n, task in enumerate(selected_tasks(cfg, limit), 1):
@@ -245,7 +247,7 @@ def failed_checkout(cfg: Config, spec: ToolSpec, task: Task, msg: str) -> dict:
         "tool": spec.name,
         "task_id": task.instance_id,
         "repo": task.repo,
-        "fingerprint": spec.fingerprint(cfg["top_k"]),
+        "fingerprint": cfg.fingerprint(spec),
         "pin": spec.pin,
         "version": None,
         "status": "error",
