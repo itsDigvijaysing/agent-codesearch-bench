@@ -33,6 +33,7 @@ RECORD_FIELDS = (
 # when not collected); permission_denials: tool calls the session's permission check blocked.
 QUALITY = ["file_recall@1", "file_recall@5", "file_recall@10", "mrr", "span_recall",
            "span_precision"]  # fmt: skip
+EXTRA_FIELDS = ("graph_built", "resumed_after_limit", "result_events")
 COST = ["total_tokens", "output_tokens", "num_turns", "duration_s", "cost_usd"]
 CLAUDE_MD_HEADING = "Contents of CLAUDE.md (project instructions, checked into the codebase):"
 _JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
@@ -130,6 +131,17 @@ def score(task: Task, record: dict, limit: int) -> dict:
     }
 
 
+def ranges(nums: list[int]) -> str:
+    """[1, 2, 3, 7] -> '1-3, 7'."""
+    out: list[str] = []
+    for n in nums:
+        if out and out[-1].split("-")[-1] == str(n - 1):
+            out[-1] = f"{out[-1].split('-')[0]}-{n}"
+        else:
+            out.append(str(n))
+    return ", ".join(out)
+
+
 def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
     """Score every saved session, write compact records and a summary table."""
     run_dir = root / ".cache" / "trackb" / cfg["run"]
@@ -145,7 +157,8 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
             s = score(by_task[rec["task_id"]], rec, cfg["max_locations"])
             scored.setdefault(arm, {})[rec["task_id"]] = s
             raw.setdefault(arm, {})[rec["task_id"]] = rec
-            records.append({k: rec.get(k) for k in RECORD_FIELDS if k != "result_text"} | s)
+            extra = {k: rec[k] for k in EXTRA_FIELDS if k in rec}
+            records.append({k: rec.get(k) for k in RECORD_FIELDS if k != "result_text"} | extra | s)
     arms = [a for a in cfg["arms"] if a in scored]
     common = sorted(set.intersection(*(set(scored[a]) for a in arms))) if arms else []
     lines = [
@@ -157,6 +170,24 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
         "session; cost_usd is the session's own list-price cost. Tool used: sessions that ran "
         "the arm's tool at least once (where collected); Blocked: sessions with a call blocked "
         "by the permission check.",
+        "",
+        "## Sessions per arm",
+        "",
+        "| Arm | Records | OK | Cost USD | Missing task indices (0-based, sample order) |",
+        "|---|---|---|---|---|",
+    ]
+    order = list(by_task)
+    for arm in cfg["arms"]:
+        recs = raw.get(arm, {})
+        missing = ranges([i for i, t in enumerate(order) if t not in recs])
+        cost = sum(r.get("cost_usd") or 0 for r in recs.values())
+        ok = sum(r.get("status") == "ok" for r in recs.values())
+        lines.append(
+            f"| {arm} | {len(recs)}/{len(order)} | {ok} | {cost:.2f} | {missing or 'none'} |"
+        )
+    lines += [
+        "",
+        "## Results on tasks finished in every arm",
         "",
         "| Arm | Done | Tool used | Blocked | " + " | ".join(QUALITY + COST) + " |",
         "|" + "---|" * (4 + len(QUALITY) + len(COST)),

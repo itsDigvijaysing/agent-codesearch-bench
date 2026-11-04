@@ -70,3 +70,9 @@ def test_clean_normalizes_whitespace():
     from csbench.trackb import clean
 
     assert clean("a  \r\nb\t \r\n\r\n") == "a\nb"
+
+
+def test_ranges():
+    from csbench.trackb import ranges
+
+    assert ranges([1, 2, 3, 7, 9, 10]) == "1-3, 7, 9-10" and ranges([]) == ""
