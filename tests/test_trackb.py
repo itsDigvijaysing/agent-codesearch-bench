@@ -47,13 +47,22 @@ def test_score_and_failed_session():
 
 
 def test_session_request_differs_only_by_arm_setup():
-    cfg, root = load_config(ROOT / "configs" / "trackb.yaml")
+    cfg, root = load_config(ROOT / "configs" / "trackb.yaml", "trackb-haiku")
+    assert cfg["model"] == "claude-haiku-5-5" and list(cfg["arms"]) == [
+        "baseline",
+        "semble",
+        "graphify",
+    ]
+    pilot, _ = load_config(ROOT / "configs" / "trackb.yaml", "trackb-pilot")
+    assert list(pilot["arms"]) == ["baseline", "semble"] and pilot["limit"] == 10
     base = session_request(cfg, root, TASK, "baseline")
     tool = session_request(cfg, root, TASK, "semble")
     assert base["append_system_prompt"] is None and "semble search" in tool["append_system_prompt"]
+    graph = session_request(cfg, root, TASK, "graphify")
+    setup = cfg["arms"]["graphify"]["setup"]
+    assert graph["prompt"].replace(setup, "") == base["prompt"]
     assert base["source_revision"] == "abc" and "<issue>\nBug in x\n</issue>" in base["prompt"]
-    setup = cfg["arms"]["semble"]["setup"]
-    assert tool["prompt"].replace(setup, "") == base["prompt"]
+    assert tool["prompt"] == base["prompt"]  # semble is preinstalled: no setup line
 
 
 def test_clean_normalizes_whitespace():

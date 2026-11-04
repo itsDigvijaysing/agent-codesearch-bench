@@ -36,15 +36,21 @@ COST = ["total_tokens", "output_tokens", "num_turns", "duration_s", "cost_usd"]
 _JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 
 
-def load_config(path: str | Path) -> tuple[dict, Path]:
+def load_config(path: str | Path, run: str) -> tuple[dict, Path]:
+    """The protocol with one named run's model, task count and arms resolved."""
     path = Path(path).resolve()
-    return yaml.safe_load(path.read_text()), path.parent.parent
+    cfg = yaml.safe_load(path.read_text())
+    spec = cfg["runs"][run]
+    arms = spec.get("arms") or list(cfg["arms"])
+    cfg |= {"run": run, "model": spec["model"], "limit": spec.get("limit")}
+    cfg["arms"] = {a: cfg["arms"][a] for a in arms}
+    return cfg, path.parent.parent
 
 
 def tasks(cfg: dict, root: Path, parquet: Path) -> list[Task]:
     by_id = {t.instance_id: t for t in load_tasks(parquet)}
-    ids = [i for i in (root / cfg["tasks"]["sample"]).read_text().split() if i]
-    return [by_id[i] for i in ids[: cfg["tasks"].get("limit")]]
+    ids = [i for i in (root / cfg["sample"]).read_text().split() if i]
+    return [by_id[i] for i in ids[: cfg.get("limit")]]
 
 
 def clean(text: str) -> str:

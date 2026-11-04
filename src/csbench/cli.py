@@ -51,6 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--trackb-config", default="configs/trackb.yaml")
     ap.add_argument("--arm", help="Track B arm for trackb-requests")
+    ap.add_argument("--trackb-run", default="trackb-pilot", help="named run in the config")
     args = ap.parse_args(argv)
     budget = args.time_budget_min * 60 if args.time_budget_min else None
     if args.command == "try":
@@ -73,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command.startswith("trackb"):
         from csbench import trackb
 
-        tcfg, root = trackb.load_config(args.trackb_config)
+        tcfg, root = trackb.load_config(args.trackb_config, args.trackb_run)
         parquet = runner.dataset_path(cfg)
         if args.command == "trackb-requests":
             for task in trackb.tasks(tcfg, root, parquet):
