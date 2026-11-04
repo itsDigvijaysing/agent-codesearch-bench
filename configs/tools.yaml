@@ -29,9 +29,10 @@ tools:
     note: "Python API SembleIndex.from_path(repo).search(query, top_k), default settings."
   graphify:
     adapter: graphify
-    pin: "TBD"
-    status: planned
-    note: "M2: deterministic AST code mode only; excluded if retrieval needs an LLM."
+    pin: "graphifyy==0.9.102"
+    env: configs/envs/graphify.txt
+    status: active
+    note: "CLI: extract --code-only with GRAPHIFY_BACKEND=none (AST only), query defaults."
   code-review-graph:
     adapter: code-review-graph
     pin: "TBD"

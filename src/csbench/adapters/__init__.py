@@ -14,6 +14,10 @@ def get_adapter(name: str) -> type[Adapter]:
         from csbench.adapters.semble import SembleAdapter
 
         return SembleAdapter
+    if name == "graphify":
+        from csbench.adapters.graphify import GraphifyAdapter
+
+        return GraphifyAdapter
     raise KeyError(f"unknown adapter: {name}")
 
 

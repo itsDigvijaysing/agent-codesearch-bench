@@ -111,7 +111,24 @@ def test_bm25_adapter(repo, tmp_path):
 def test_registry():
     from csbench.adapters import get_adapter
 
-    for name in ["grep", "bm25", "semble"]:
+    for name in ["grep", "bm25", "semble", "graphify"]:
         assert get_adapter(name).name == name
+    assert not get_adapter("graphify").returns_code and not get_adapter("graphify").has_spans
     with pytest.raises(KeyError):
         get_adapter("nope")
+
+
+def test_graphify_parse_nodes():
+    from csbench.adapters.graphify import parse_nodes
+
+    out = (
+        "Graph: graphify-out/graph.json (3 nodes) | Traversal: BFS\n\n"
+        "NODE report.py [src=src/report.py loc=L1 community=1]\n"
+        "NODE bootstrap_ci() [src=src/my dir/metrics.py loc=L112 community=1]\n"
+        "EDGE a --calls--> b\n"
+    )
+    hits = parse_nodes(out)
+    assert [(h.file, h.start, h.end) for h in hits] == [
+        ("src/report.py", 1, 1),
+        ("src/my dir/metrics.py", 112, 112),
+    ]
