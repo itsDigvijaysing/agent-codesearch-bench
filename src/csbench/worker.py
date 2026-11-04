@@ -53,8 +53,8 @@ def main(spec_path: str) -> int:
             status="ok",
             build_s=t1 - t0,
             query_s=t2 - t1,
-            has_spans=adapter.has_spans,
             hits=[asdict(h) for h in hits],
+            raw_output=adapter.raw_output,
         )
     except Exception as exc:  # recorded, never dropped
         out["error"] = f"{type(exc).__name__}: {exc}"

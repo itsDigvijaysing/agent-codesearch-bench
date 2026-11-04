@@ -72,7 +72,15 @@ def task_metrics(
     precision_ks: tuple[int, ...] = (5, 10),
     budgets: tuple[int, ...] = (2000, 8000),
     has_spans: bool = True,
+    returns_code: bool = True,
+    output_tokens: int | None = None,
 ) -> dict[str, float | None]:
+    """Metrics for one task.
+
+    ``has_spans=False`` (results are files or bare locations) reports span metrics as None.
+    ``returns_code=False`` (the tool returns locations, not code) reports token-budget recall
+    as None and uses ``output_tokens``, the size of the tool's own output, as tokens returned.
+    """
     gold_files = set(gold)
     files = ranked_files(hits)
     m: dict[str, float | None] = {}
@@ -91,6 +99,10 @@ def task_metrics(
         m["span_precision"] = inter / pred_total if pred_total else 0.0
     else:
         m["span_recall"] = m["span_precision"] = None
+    if not returns_code:
+        m["tokens_returned"] = float(output_tokens or 0)
+        m |= {f"line_recall@{b}tok": None for b in budgets}
+        return m
     m["tokens_returned"] = float(sum(h.tokens for h in hits))
     for b in budgets:
         inter = intersection_lines(_lines(_budget_prefix(hits, b)), gold)

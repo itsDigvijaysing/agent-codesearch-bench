@@ -18,7 +18,9 @@ class Hit:
 
 class Adapter:
     name = ""
-    has_spans = True
+    has_spans = True  # results carry line spans (False: files or bare locations)
+    returns_code = True  # results are code the agent reads (False: locations only)
+    raw_output: str | None = None  # the tool's own output text, for location-only tools
 
     def __init__(self, **params):
         self.params = params

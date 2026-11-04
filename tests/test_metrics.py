@@ -83,3 +83,16 @@ def test_paired_bootstrap():
     assert better["ci_low"] > 0 and better["p_value"] == 0
     same = paired_bootstrap(b, b)
     assert same["diff"] == 0 and same["p_value"] == 1
+
+
+def test_location_only_tool_uses_output_tokens():
+    m = task_metrics(
+        GOLD,
+        [hit("a.py", 10, 10)],
+        has_spans=False,
+        returns_code=False,
+        output_tokens=1234,
+        budgets=(2000,),
+    )
+    assert m["file_recall@1"] == 0.5 and m["tokens_returned"] == 1234
+    assert m["line_recall@2000tok"] is None and m["span_recall"] is None

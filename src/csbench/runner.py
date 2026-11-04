@@ -16,6 +16,7 @@ from functools import cache
 from pathlib import Path
 
 from csbench import repos
+from csbench.adapters import get_adapter
 from csbench.config import Config, ToolSpec
 from csbench.dataset import Task, download, load_tasks, normalize_path
 from csbench.files import read_lines
@@ -191,12 +192,15 @@ def run_worker(spec: dict, timeout: float, python: str = sys.executable) -> dict
     return result
 
 
-def metric_kwargs(cfg: Config) -> dict:
+def metric_kwargs(cfg: Config, spec: ToolSpec) -> dict:
     m = cfg["metrics"]
+    adapter = get_adapter(spec.adapter)
     return {
         "ks": tuple(m["ks"]),
         "precision_ks": tuple(m["precision_ks"]),
         "budgets": tuple(m["budgets"]),
+        "has_spans": adapter.has_spans,
+        "returns_code": adapter.returns_code,
     }
 
 
@@ -236,8 +240,7 @@ def evaluate_pair(cfg: Config, spec: ToolSpec, task: Task, repo_dir: Path) -> di
     index_bytes = repos.dir_bytes(index_dir)
     shutil.rmtree(index_dir, ignore_errors=True)
 
-    kwargs = metric_kwargs(cfg)
-    has_spans = bool(result.get("has_spans", True))
+    kwargs = metric_kwargs(cfg, spec)
     rec = {
         "tool": spec.name,
         "task_id": task.instance_id,
@@ -249,7 +252,12 @@ def evaluate_pair(cfg: Config, spec: ToolSpec, task: Task, repo_dir: Path) -> di
     }
     if result["status"] == "ok":
         hits = resolve_hits(repo_dir, result["hits"], cfg["metrics"]["tokenizer"])
-        rec["metrics"] = task_metrics(task.gold_lines, hits, has_spans=has_spans, **kwargs)
+        if not kwargs["returns_code"]:  # location tools: count what the agent actually receives
+            raw = result.get("raw_output") or ""
+            kwargs["output_tokens"] = len(
+                _encoder(cfg["metrics"]["tokenizer"]).encode_ordinary(raw)
+            )
+        rec["metrics"] = task_metrics(task.gold_lines, hits, **kwargs)
         rec.update(
             build_s=round(result["build_s"], 4),
             query_s=round(result["query_s"], 4),
@@ -260,8 +268,7 @@ def evaluate_pair(cfg: Config, spec: ToolSpec, task: Task, repo_dir: Path) -> di
             hits=[[h.file, h.start, h.end, h.tokens] for h in hits[:STORED_HITS]],
         )
     else:
-        template = task_metrics(task.gold_lines, [], has_spans=has_spans, **kwargs)
-        rec["metrics"] = zero_metrics(template)
+        rec["metrics"] = zero_metrics(task_metrics(task.gold_lines, [], **kwargs))
         rec["error"] = result.get("error", "unknown error")
     return rec
 
@@ -317,7 +324,7 @@ def run(
 
 
 def failed_checkout(cfg: Config, spec: ToolSpec, task: Task, msg: str) -> dict:
-    template = task_metrics(task.gold_lines, [], **metric_kwargs(cfg))
+    template = task_metrics(task.gold_lines, [], **metric_kwargs(cfg, spec))
     return {
         "tool": spec.name,
         "task_id": task.instance_id,
