@@ -7,3 +7,17 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 dist/
+
+# Local working notes and tool settings, kept out of the repository
+/CLAUDE.md
+/PLAN.md
+/.claude/
+results/*/sessions/
+
+# Editors, OS files, local runs
+.vscode/
+.idea/
+.DS_Store
+*.log
+.env
+csbench-try-*/
