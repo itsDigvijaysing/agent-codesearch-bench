@@ -81,6 +81,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(trackb.session_request(tcfg, root, task, args.arm)))
         else:
             print(trackb.summarize(tcfg, root, parquet, cfg.path("results") / tcfg["run"]))
+            from csbench import plots
+
+            plots.write_overview(cfg.path("results"))
         return 0
     if args.command == "lock":
         for spec in cfg.tools(args.tools):

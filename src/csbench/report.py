@@ -247,6 +247,8 @@ def write(
     _csv(out / f"paired_vs_{cfg['bootstrap']['baseline']}.csv", paired)
     (out / "summary.md").write_text(markdown(cfg, rows, paired, order, records))
     plots.write(rows, len(order), out / "plots")
+    if readme:
+        plots.write_overview(cfg.path("results"))
     if readme and cfg.raw.get("readme_table"):
         update_readme(cfg, headline(cfg, rows, order))
     return out
