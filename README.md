@@ -8,6 +8,10 @@ cost** (tokens handed to the agent, time, memory).
 It is neutral: no affiliation with any tool, every tool runs with its documented interface and
 default settings, and every number can be reproduced with one command.
 
+<img src="docs/figures/at-a-glance.svg" width="100%" alt="Results at a glance: semble puts 62% of the needed files in its top 10 (grep 33%); BM25 shows 22% of the needed lines within 8,000 tokens (semble 11%); adding semble or graphify to an agent did not find more files but took 32 s and 60 s per session instead of 13 s">
+
+<img src="docs/figures/how-it-works.svg" width="100%" alt="How the benchmark works: a real bug report goes to a search tool (Track A) or a coding agent (Track B); what they return is compared with the code people marked as needed; the scores are files found, lines found, tokens used and time">
+
 ## Key findings
 
 Written by hand from the results of 4 November 2026; the tables further down are regenerated
@@ -22,8 +26,9 @@ when tool versions change.
    8,000 tokens, BM25 covers 22% of the needed lines, semble 11% (p < 0.01) and grep 8%.
    semble points to the right files, but its 10 short chunks show less of the needed code.
 3. **Large projects are harder for every tool.** On 50 tasks from 13 large projects in 4
-   languages, scores drop to between a third and a half of the main run; the order stays the
-   same (semble 29%, graphify 21%, BM25 18%, grep 12%).
+   languages, scores drop to between a third and a half of the main run. semble still leads
+   (29%), then graphify (21%) and BM25 (18%); grep ranked by distinct terms falls from second
+   to fourth (15%), and plain grep finds 12%.
 4. **With an agent, the tools did not improve accuracy (preliminary, 40 tasks).** An agent
    using only its built-in search and file reading found 83% of the needed files on average,
    and all of them in 25 of 40 tasks. Search alone on the same 40 tasks found 40% with grep
@@ -39,8 +44,14 @@ when tool versions change.
 
 ## How to read the numbers
 
-- **Gold context:** the code that human annotators marked as needed for the fix
-  ([ContextBench](https://github.com/EuniAI/ContextBench)). Every score compares a tool's
+Here is one of the 100 tasks, scored the way every task is:
+
+<img src="docs/figures/example-task.svg" width="100%" alt="One real matplotlib task: the fix needed legend.py and offsetbox.py. grep and BM25 found neither in their top 10, graphify found legend.py at rank 3, semble at rank 7; the agent on its own found both">
+
+The tables and charts use these measures:
+
+- **Gold context** (the answer key in the figure): the code that human annotators marked as
+  needed for the fix ([ContextBench](https://github.com/EuniAI/ContextBench)). Every score compares a tool's
   results with it.
 - **File recall@10:** of the files the fix needs, the share that appear in the tool's first
   10 results. 1.0 means all of them.
@@ -65,6 +76,9 @@ configuration for their tool through a pull request (see [CONTRIBUTING.md](CONTR
 
 ## Results
 
+Colors are the same in every chart: gray for the baselines (grep, grep-distinct, BM25 and the
+agent on its own), blue for semble, orange for graphify, aqua for code-review-graph.
+
 ### Track A: search only (100 Python tasks)
 
 Each tool gets the issue text as its query and returns its top 10 results.
@@ -86,6 +100,15 @@ graphify and code-review-graph return locations rather than code, so line recall
 budget does not apply to them (n/a). Query time, index build time, index size and memory are
 in the full table.
 
+The same 100 tasks, files against lines (bars are means, whiskers 95% confidence intervals):
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="results/v1/plots/files_vs_lines_dark.png">
+  <img alt="Two bar charts side by side, one bar per tool. Left: share of needed files in the top 10 results, semble highest at 0.62. Right: share of needed lines within 8,000 tokens, BM25 highest at 0.22, semble 0.11" src="results/v1/plots/files_vs_lines_light.png" width="720">
+</picture>
+
+Recall against cost:
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="results/v1/plots/recall_vs_tokens_dark.png">
   <img alt="File recall@10 against tokens returned per query, one labelled point per tool with 95% confidence intervals" src="results/v1/plots/recall_vs_tokens_light.png" width="640">
@@ -104,6 +127,11 @@ File recall@10: semble 0.285, graphify 0.211, BM25 0.178, grep-distinct 0.153, g
 code-review-graph 0.051. Full table with confidence intervals:
 [results/hard/summary.md](results/hard/summary.md).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="results/plots/v1_vs_hard_dark.png">
+  <img alt="Dot chart, one row per tool: a solid dot for file recall@10 on the 100 v1 tasks and a ring for the 50 hard tasks. Every tool drops; semble stays highest on both" src="results/plots/v1_vs_hard_light.png" width="720">
+</picture>
+
 ### Track B: an agent with each tool (preliminary, 40 tasks)
 
 A coding agent (Claude Code, Haiku model) reads the issue in the repository and lists the code
@@ -116,6 +144,11 @@ confidence intervals and paired tests:
 | Agent alone | not recorded | 0.830 | 25/40 | 273,638 | 13 s |
 | Agent + semble | 35/40 | 0.853 | 29/40 | 303,077 | 32 s |
 | Agent + graphify | 34/40 | 0.842 | 27/40 | 331,954 | 60 s |
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="results/plots/trackb_dark.png">
+  <img alt="Three bar charts, one bar per arm: file recall@10 is about the same for all three arms (0.83 to 0.85), while time per session rises from 13 s alone to 32 s with semble and 60 s with graphify, and tokens per session from 274K to 303K and 332K" src="results/plots/trackb_light.png" width="720">
+</picture>
 
 The run stopped at an account usage limit after 40 to 50 tasks per arm; these are the 40 tasks
 finished in every arm. Two graphify sessions resumed after the limit and their tokens and
