@@ -1,43 +1,73 @@
 # codesearch-bench
 
-A neutral, reproducible benchmark for the code-search and code-context tools that coding agents
-use. It measures how well each tool retrieves the code a task actually needs, and what that
-costs in tokens, time and memory.
+Coding agents use search tools to find the code a task needs before they change it. This
+benchmark tests those tools on 100 real bug-fix tasks where humans marked exactly which code
+the fix needed, and measures two things: **does the tool find that code**, and **what does it
+cost** (tokens handed to the agent, time, memory).
+
+It is neutral: no affiliation with any tool, every tool runs with its documented interface and
+default settings, and every number can be reproduced with one command.
 
 ## Key findings
 
-- **Retrieval alone (Track A, 100 Python tasks):** semble finds the needed files best (file
-  recall@10 0.62, against 0.33 for grep, a significant gap) while returning about 3,300 tokens
-  per query against grep's 49,500. graphify (0.43), BM25 (0.40) and grep ranked by distinct
-  terms (0.44) sit together; code-review-graph's keyword search returned nothing for 65 of 100
-  issue texts.
-- **Large projects (hard split, 50 tasks, 4 languages):** every tool roughly halves; semble
-  still leads (0.29), then graphify (0.21) and BM25 (0.18).
-- **With an agent (Track B, preliminary, 40 tasks, Haiku):** the agent alone already finds the
-  needed files 83% of the time. Given each tool's own instructions it used semble in 35 of 40
-  sessions and graphify in 34 of 40, yet neither changed accuracy measurably (paired p > 0.4);
-  graphify cost about 58,000 more tokens per session (p = 0.006) and 4.5 times the time.
-- **So:** a better retriever helps most when retrieval is all you have; an agent that can grep
-  and read recovers most of the gap on these tasks, at least with this model and task size.
-  Results on larger, multi-file tasks with an agent are the open question.
+Written by hand from the results of 4 November 2026; the tables further down are regenerated
+when tool versions change.
 
-## Why
+1. **Finding the right files: semble is best.** In its top 10 results it finds 62% of the
+   files a fix needs, against 33% for plain grep (a significant gap), while handing the agent
+   about 3,300 tokens instead of grep's 49,500. graphify (43%), grep ranked by distinct terms
+   (44%) and BM25 (40%) sit together. code-review-graph's default keyword search returned
+   nothing for 65 of the 100 issue texts.
+2. **Finding the exact lines: BM25 is best.** Reading each tool's results in order up to
+   8,000 tokens, BM25 covers 22% of the needed lines, semble 11% (p < 0.01) and grep 8%.
+   semble points to the right files, but its 10 short chunks show less of the needed code.
+3. **Large projects are harder for every tool.** On 50 tasks from 13 large projects in 4
+   languages, scores drop to between a third and a half of the main run; the order stays the
+   same (semble 29%, graphify 21%, BM25 18%, grep 12%).
+4. **With an agent, the tools did not improve accuracy (preliminary, 40 tasks).** An agent
+   using only its built-in search and file reading found 83% of the needed files on average,
+   and all of them in 25 of 40 tasks. Search alone on the same 40 tasks found 40% with grep
+   and 71% with semble. Given semble or graphify with their own instructions, the agent used them
+   in 35 and 34 of 40 sessions, yet no accuracy difference reached significance (all within
+   6 points, smallest p = 0.06). The tools did cost more: sessions took about 2.6 times as
+   long with semble and 4.8 times with graphify, and graphify sessions used 21% more tokens
+   (p = 0.006).
+5. **What it means:** a better search tool matters most when one search is all you get (a
+   single retrieval step, a RAG pipeline). An agent that can grep and read files recovered
+   most of the gap on these tasks, at least with this model (Claude Haiku) and these task
+   sizes. Whether that holds for larger, multi-file tasks is still open.
+
+## How to read the numbers
+
+- **Gold context:** the code that human annotators marked as needed for the fix
+  ([ContextBench](https://github.com/EuniAI/ContextBench)). Every score compares a tool's
+  results with it.
+- **File recall@10:** of the files the fix needs, the share that appear in the tool's first
+  10 results. 1.0 means all of them.
+- **MRR:** how high the first needed file ranks (1.0 means it is always first, 0.5 second).
+- **Line recall @ 8k tokens:** read the tool's results in order until 8,000 tokens are used;
+  the share of the needed lines that were in that text. This compares tools at equal cost.
+- **Tokens returned:** how much text the tool hands the agent per query. More tokens means
+  more cost and more of the agent's context used up.
+- **[low, high]:** 95% confidence interval over tasks. When two tools' intervals overlap a
+  lot, the difference may be noise; the paired tests in `results/<run>/paired_vs_grep.csv`
+  settle it.
+
+## Why this exists
 
 Users of these tools keep asking for independent numbers, and tool authors have said there is
 no good benchmark to compare against. See the discussions in the r/ClaudeAI launch threads for
 [graphify](https://www.reddit.com/r/ClaudeAI/comments/1ui6unv) and
 [semble](https://www.reddit.com/r/ClaudeAI/comments/1szvo7t).
 
-**Neutrality.** This project has no affiliation with any tool it evaluates. Every tool runs
-with its documented interface and default settings first; tuned settings are labelled
-separately. Maintainers can propose a configuration through a pull request (see
-[CONTRIBUTING.md](CONTRIBUTING.md)).
+Tuned settings, if any, are labelled separately from defaults. Maintainers can propose a
+configuration for their tool through a pull request (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## Results
 
-The question this answers for a tool's users: does the tool find the code a task needs better
-than what an agent already does by default (grep), and how many tokens, how much time and how
-much memory does that cost?
+### Track A: search only (100 Python tasks)
+
+Each tool gets the issue text as its query and returns its top 10 results.
 
 <!-- results:start (generated by `csbench report`) -->
 | Tool | File recall@10 | MRR | Line recall @ 8k tokens | Tokens returned | Failures |
@@ -52,6 +82,10 @@ much memory does that cost?
 Means over 100 tasks with 95% bootstrap confidence intervals (B = 1000, seed 42). Full table: [results/v1/summary.md](results/v1/summary.md).
 <!-- results:end -->
 
+graphify and code-review-graph return locations rather than code, so line recall at a token
+budget does not apply to them (n/a). Query time, index build time, index size and memory are
+in the full table.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="results/v1/plots/recall_vs_tokens_dark.png">
   <img alt="File recall@10 against tokens returned per query, one labelled point per tool with 95% confidence intervals" src="results/v1/plots/recall_vs_tokens_light.png" width="640">
@@ -61,26 +95,32 @@ Means over 100 tasks with 95% bootstrap confidence intervals (B = 1000, seed 42)
   <img alt="File recall@10 against query latency, one labelled point per tool with 95% confidence intervals" src="results/v1/plots/recall_vs_latency_light.png" width="640">
 </picture>
 
-Query latency excludes index build time; build time, index size and memory are in the full
-table.
+Query latency excludes index build time.
 
-**Hard split** (50 tasks in 13 large projects, gold context in 3 or more files, 4 languages):
-every tool scores lower; file recall@10 is 0.285 for semble, 0.211 for graphify, 0.178 for
-BM25, 0.153 for grep-distinct, 0.116 for grep and 0.051 for code-review-graph. Full table with
-confidence intervals: [results/hard/summary.md](results/hard/summary.md).
+### Hard split: large projects (50 tasks, 4 languages)
 
-**Track B, preliminary** (an agent with each tool; 40 tasks finished in every arm, Claude
-Haiku in Claude Code cloud sessions; full table with confidence intervals:
-[results/trackb-haiku/summary.md](results/trackb-haiku/summary.md)):
+Tasks from 13 projects with at least 2,500 files, where the fix needs code in 3 or more files.
+File recall@10: semble 0.285, graphify 0.211, BM25 0.178, grep-distinct 0.153, grep 0.116,
+code-review-graph 0.051. Full table with confidence intervals:
+[results/hard/summary.md](results/hard/summary.md).
 
-| Arm | Used the tool | File recall@10 | MRR | Tokens per session | Time per session |
+### Track B: an agent with each tool (preliminary, 40 tasks)
+
+A coding agent (Claude Code, Haiku model) reads the issue in the repository and lists the code
+to read or change. The arms differ only in which tool, if any, it is given. Full table with
+confidence intervals and paired tests:
+[results/trackb-haiku/summary.md](results/trackb-haiku/summary.md).
+
+| Arm | Used the tool | File recall@10 | Found every needed file | Tokens per session | Time per session |
 |---|---|---|---|---|---|
-| Agent alone | n/a | 0.830 | 0.988 | 273,638 | 13 s |
-| Agent + semble | 35/40 | 0.853 | 0.975 | 303,077 | 32 s |
-| Agent + graphify | 34/40 | 0.842 | 0.975 | 331,954 | 60 s |
+| Agent alone | not recorded | 0.830 | 25/40 | 273,638 | 13 s |
+| Agent + semble | 35/40 | 0.853 | 29/40 | 303,077 | 32 s |
+| Agent + graphify | 34/40 | 0.842 | 27/40 | 331,954 | 60 s |
 
-The run stopped at an account usage limit after 40 to 50 tasks per arm; finished sessions were
-recovered and the rest are listed as missing in the summary. The Sonnet subset was not run.
+The run stopped at an account usage limit after 40 to 50 tasks per arm; these are the 40 tasks
+finished in every arm. Two graphify sessions resumed after the limit and their tokens and
+time count only the resumed part, so graphify's cost is if anything understated (without them:
+23% more tokens, 4.9 times the time). The planned Sonnet subset was not run.
 
 ## Try it on your project
 
@@ -92,13 +132,15 @@ uvx --from git+https://github.com/itsDigvijaysing/agent-codesearch-bench csbench
 ```
 
 (or `make try REPO=/path/to/your/repo` from a checkout). It needs [uv](https://docs.astral.sh/uv/),
-git and ripgrep, and writes the same report as above to `./csbench-try-<name>/`. Tasks are your
-recent focused commits (1 to 5 non-test files changed; version bumps, merges, reverts and
-formatting skipped): the commit message is the query and the lines the commit changed are the
-answer, with every tool run on the commit before it. Commit messages are written after the
-fix and often name the changed code, so absolute scores run high; compare the tools with each
-other. Options: `--commits N` (default 20), `--tools grep bm25 semble`, `--time-budget-min M`
-(stop and resume later). The rule is in [`src/csbench/tryrepo.py`](src/csbench/tryrepo.py).
+git and ripgrep, and writes the same report as above to `./csbench-try-<name>/`.
+
+How it works: each recent focused commit (1 to 5 non-test files changed; version bumps,
+merges, reverts and formatting skipped) becomes a task. The commit message is the query, the
+lines it changed are the answer, and every tool searches the commit before it. Commit messages
+are written after the fix and often name the changed code, so scores run high: compare the
+tools with each other, not with the tables above. Options: `--commits N` (default 20),
+`--tools grep bm25 semble`, `--time-budget-min M` (stop and resume later). The rule is in
+[`src/csbench/tryrepo.py`](src/csbench/tryrepo.py).
 
 ## Method
 
@@ -132,20 +174,22 @@ repository checked out at the task's base commit. Every gold file of the 100 sam
 exists at its base commit (299 of 299 files checked), so a perfect tool can reach recall 1.
 Each tool is asked for its top 10 results in its own unit (files, chunks or code entities).
 
-**Track A: retrieval only.** Each tool returns ranked context (files and, where available,
+**Track A: search only.** Each tool returns ranked context (files and, where available,
 line spans), which is scored against the gold context.
 
 **Track B: an agent with each tool** ([`configs/trackb.yaml`](configs/trackb.yaml),
 [`src/csbench/trackb.py`](src/csbench/trackb.py)). A coding agent (Claude Code in a cloud
 session, Haiku model) gets the same issue at the base commit and must name the code to read or
-change, ending with a JSON list of locations. Arms differ only in one setup line and the
-tool's own documented agent instructions (for semble, its CLI sub-agent text, verbatim). The
-final locations are scored with the Track A metrics; cost is the session's own token count,
-turns, time and list-price cost. Web search and fetch are forbidden in the prompt and their
-counts are recorded, as is whether the agent actually ran the tool. The tool's instructions
-are placed in the prompt as CLAUDE.md project instructions (where its installer puts them);
-the tools are preinstalled for every arm by the cloud environment's setup script. Status:
-preliminary, 40 tasks (see [PLAN.md](PLAN.md)).
+change, ending with a JSON list of locations. Every arm gets the same prompt; the tool arms add
+one setup line and the tool's own documented agent instructions, given as project
+instructions (CLAUDE.md) at the top of the prompt. For graphify that is the CLAUDE.md block its
+installer writes; for semble it is its Claude Code sub-agent text, verbatim (semble's own
+install adds it as a sub-agent, not as project instructions). The final locations are scored
+with the Track A metrics; cost is the session's own token count, turns, time and list-price
+cost. Web search and fetch are forbidden in the prompt and their use is counted (0 in every
+session). For the tool arms, whether the agent actually ran the tool is recorded. All tools
+are preinstalled for every arm by the cloud environment's setup script, so every arm runs on
+the same machine image.
 
 **Baselines.**
 - *grep*: identifiers extracted from the issue text (file paths, dotted names, CamelCase and
@@ -226,18 +270,18 @@ grep and BM25 baselines stay fixed so the reference point does not move.
 
 Per-task records are committed in `results/v1/per_task/<tool>.jsonl.gz`. Each record carries
 a fingerprint of the tool settings, metric settings, dataset revision, the tool's lock file and
-the adapter and metric source code; `uv run csbench run` (without `--fresh`) reuses a committed record only
-when its fingerprint still matches.
+the adapter and metric source code; `uv run csbench run` (without `--fresh`) reuses a committed
+record only when its fingerprint still matches.
 
 ## Tools
 
 | Tool | Status |
 |---|---|
 | grep, grep-distinct and BM25 baselines | in v1 |
-| [semble](https://github.com/MinishLab/semble) | in v1 |
-| [graphify](https://github.com/Graphify-Labs/graphify) | in v1, deterministic AST code mode only |
+| [semble](https://github.com/MinishLab/semble) | in v1 and Track B |
+| [graphify](https://github.com/Graphify-Labs/graphify) | in v1 (deterministic AST code mode only) and Track B |
 | [code-review-graph](https://github.com/tirth8205/code-review-graph) | in v1, keyword search (no embeddings, no LLM) |
-| [Serena](https://github.com/oraios/serena) | Track B: agent-driven symbolic navigation, not free-text retrieval |
+| [Serena](https://github.com/oraios/serena) | not yet: agent-driven symbolic navigation, not free-text search, so it only fits Track B |
 | [claude-context](https://github.com/zilliztech/claude-context) | v2: needs a Milvus instance and an embedding API key |
 
 ## Limitations
@@ -253,7 +297,7 @@ when its fingerprint still matches.
   results for short queries); the benchmark keeps each tool's default behaviour with the issue
   text as the query, so this counts against it. Agents that write short queries (Track B) may
   see different results.
-- semble returns about 3,400 tokens for its top 10 chunks, so its line recall at 8,000 tokens
+- semble returns about 3,300 tokens for its top 10 chunks, so its line recall at 8,000 tokens
   equals its span recall; ranking more chunks would cost more tokens and could recall more.
 - Query latency is measured inside one process per (tool, task): an in-process API call for
   BM25 and semble, a CLI process (including its start-up) for grep, graphify and
@@ -261,13 +305,20 @@ when its fingerprint still matches.
 - The grep baseline returns every hit line (with context) of its top 10 files, so its token
   count is far higher than an agent that lists matching files first and then reads a few. The
   token-budget recall columns compare tools at equal token cost.
-
 - Track B is preliminary: 40 tasks, one model (Haiku), one session per task and arm (agent
-  runs are not deterministic), localization only (no patch or tests). It runs in Claude Code
-  cloud sessions, which change between versions, so the protocol and per-session records are
-  committed but the sessions cannot be replayed exactly. code-review-graph and Serena are not
-  Track B arms: their agent integration is an MCP server, which a cloud session cannot have
-  configured before it starts without also exposing it to the baseline arm.
+  runs are not deterministic), localization only (no patch or tests). With 40 tasks, accuracy
+  differences smaller than about 5 points cannot be told apart from noise.
+- Track B tool calls were collected for the semble and graphify arms only. The tools were
+  installed in every arm's environment and the baseline prompt never mentions them, but
+  whether a baseline agent ever ran one is not recorded.
+- In Track B, one semble session hit a Hugging Face download limit while fetching semble's
+  model (25 sessions started at once); which one is not recorded, so "used the tool" may
+  count one session where semble did not return results.
+- Track B runs in Claude Code cloud sessions, which change between versions, so the protocol
+  and per-session records are committed but the sessions cannot be replayed exactly.
+- code-review-graph and Serena are not Track B arms: their documented agent integration is an
+  MCP server, which a cloud session cannot have configured before it starts without also
+  exposing it to the baseline arm.
 
 ## Credits and license
 
