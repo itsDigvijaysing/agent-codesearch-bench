@@ -8,7 +8,7 @@ cost** (tokens handed to the agent, time, memory).
 It is neutral: no affiliation with any tool, every tool runs with its documented interface and
 default settings, and every number can be reproduced with one command.
 
-<img src="docs/figures/at-a-glance.svg" width="100%" alt="Results at a glance: semble puts 62% of the needed files in its top 10 (grep 33%); BM25 shows 22% of the needed lines within 8,000 tokens (semble 11%); adding semble or graphify to an agent did not find more files but took 32 s and 60 s per session instead of 13 s">
+<img src="docs/figures/at-a-glance.svg" width="100%" alt="Results at a glance: semble puts 62% of the needed files in its top 10 (grep 33%); BM25 shows 22% of the needed lines within 8,000 tokens (semble 11%); adding semble or graphify to an agent did not find more files but sessions took 32 s and 60 s instead of 13 s, mostly building the index">
 
 <img src="docs/figures/how-it-works.svg" width="100%" alt="How the benchmark works: a real bug report goes to a search tool (Track A) or a coding agent (Track B); what they return is compared with the code people marked as needed; the scores are files found, lines found, tokens used and time">
 
@@ -34,13 +34,18 @@ when tool versions change.
    and all of them in 25 of 40 tasks. Search alone on the same 40 tasks found 40% with grep
    and 71% with semble. Given semble or graphify with their own instructions, the agent used them
    in 35 and 34 of 40 sessions, yet no accuracy difference reached significance (all within
-   6 points, smallest p = 0.06). The tools did cost more: sessions took about 2.6 times as
-   long with semble and 4.8 times with graphify, and graphify sessions used 21% more tokens
-   (p = 0.006).
+   6 points, smallest p = 0.06). The tools did cost more: 11% more per session with semble
+   and 39% more with graphify at list price (both significant). Sessions also took about 2.6
+   and 4.8 times as long, but most of that is the tool building its index inside the session
+   (graphify's graph build alone averages 38 s on these tasks), which a regular user does once.
+   These 40 tasks are easy for an agent: 30 of the bug reports name a needed file, 18 tasks
+   need a single file, and 25 come from SWE-bench Verified, which the model may have seen in
+   training.
 5. **What it means:** a better search tool matters most when one search is all you get (a
    single retrieval step, a RAG pipeline). An agent that can grep and read files recovered
-   most of the gap on these tasks, at least with this model (Claude Haiku) and these task
-   sizes. Whether that holds for larger, multi-file tasks is still open.
+   most of the gap on these mostly easy tasks, at least with this model (Claude Haiku).
+   Whether that holds for larger, multi-file tasks is still open; the hard split is the next
+   test.
 
 ## How to read the numbers
 
@@ -139,21 +144,25 @@ to read or change. The arms differ only in which tool, if any, it is given. Full
 confidence intervals and paired tests:
 [results/trackb-haiku/summary.md](results/trackb-haiku/summary.md).
 
-| Arm | Used the tool | File recall@10 | Found every needed file | Tokens per session | Time per session |
+| Arm | Used the tool | File recall@10 | Found every needed file | Cost per session | Time per session (incl. index build) |
 |---|---|---|---|---|---|
-| Agent alone | not recorded | 0.830 | 25/40 | 273,638 | 13 s |
-| Agent + semble | 35/40 | 0.853 | 29/40 | 303,077 | 32 s |
-| Agent + graphify | 34/40 | 0.842 | 27/40 | 331,954 | 60 s |
+| Agent alone | not recorded | 0.830 | 25/40 | $0.0074 | 13 s |
+| Agent + semble | 35/40 | 0.853 | 29/40 | $0.0083 (+11%) | 32 s |
+| Agent + graphify | 34/40 | 0.842 | 27/40 | $0.0103 (+39%) | 60 s |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="results/plots/trackb_dark.png">
-  <img alt="Three bar charts, one bar per arm: file recall@10 is about the same for all three arms (0.83 to 0.85), while time per session rises from 13 s alone to 32 s with semble and 60 s with graphify, and tokens per session from 274K to 303K and 332K" src="results/plots/trackb_light.png" width="720">
+  <img alt="Three bar charts, one bar per arm: file recall@10 is about the same for all three arms (0.83 to 0.85), while time per session (index build included) rises from 13 s alone to 32 s with semble and 60 s with graphify, and list-price cost per session from $0.0074 to $0.0083 and $0.0103" src="results/plots/trackb_light.png" width="720">
 </picture>
 
 The run stopped at an account usage limit after 40 to 50 tasks per arm; these are the 40 tasks
-finished in every arm. Two graphify sessions resumed after the limit and their tokens and
-time count only the resumed part, so graphify's cost is if anything understated (without them:
-23% more tokens, 4.9 times the time). The planned Sonnet subset was not run.
+finished in every arm. Cost is the session's own list-price cost; token counts are in the
+full table but are 92% cached reads, which cost a tenth of fresh input. The tool's index is
+built inside each session (graphify by a setup command, semble on its first search), so the
+time column includes it; the search-only test measured the build at 38 s for graphify and 6 s
+for semble on these tasks. Two graphify sessions resumed after the limit and their time counts
+only the resumed part (without them graphify takes 4.9 times as long). The planned Sonnet
+subset was not run.
 
 ## Try it on your project
 
@@ -341,6 +350,10 @@ record only when its fingerprint still matches.
 - Track B is preliminary: 40 tasks, one model (Haiku), one session per task and arm (agent
   runs are not deterministic), localization only (no patch or tests). With 40 tasks, accuracy
   differences smaller than about 5 points cannot be told apart from noise.
+- Track B's 40 tasks may overstate what an agent does alone: most bug reports name a needed
+  file, and 25 of the 40 come from SWE-bench Verified, whose fixes are public and may be in the
+  model's training data. The hard split draws mostly on newer sources (SWE-bench Pro,
+  Multi-SWE-bench, SWE-PolyBench).
 - Track B tool calls were collected for the semble and graphify arms only. The tools were
   installed in every arm's environment and the baseline prompt never mentions them, but
   whether a baseline agent ever ran one is not recorded.
