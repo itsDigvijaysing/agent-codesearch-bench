@@ -138,8 +138,8 @@ OVERVIEW_RUNS = ("v1", "hard")
 TRACKB_RUN = "trackb-haiku"
 TRACKB_PANELS = (
     ("file_recall@10", "File recall@10", "{:.2f}"),
-    ("duration_s", "Time per session", "{:.0f} s"),
-    ("total_tokens", "Tokens per session", None),
+    ("duration_s", "Time per session, incl. index build", "{:.0f} s"),
+    ("cost_usd", "Cost per session (list price)", "${:.4f}"),
 )
 
 
@@ -285,14 +285,15 @@ def _trackb(records: list[dict], theme: dict, path: Path) -> None:
         _style(ax, theme)
         stats = [bootstrap_ci(np.array([by[a][t][key] for t in common], float)) for a in arms]
         means, lows, highs = (list(x) for x in zip(*stats, strict=True))
-        fmt = spec.format if spec else (lambda v: fmt_tokens(round(v, -3)))
+        fmt = spec.format
         labels, colors = [_arm_label(a) for a in arms], [color(theme, a) for a in arms]
         _hbars(ax, labels, means, lows, highs, theme, fmt, colors)
         ax.set_xlim(0, 1 if key == Y else max(highs) * 1.3)
-        if key == "total_tokens":
-            from matplotlib.ticker import FuncFormatter
+        if key == "cost_usd":
+            from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-            ax.xaxis.set_major_formatter(FuncFormatter(fmt_tokens))
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=3, steps=[1, 2, 5]))
+            ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _pos: f"${v:.3f}"))
         ax.set_title(label, color=theme["text"], fontsize=9, loc="left")
     fig.suptitle(
         f"Track B: an agent with each tool, {len(common)} tasks finished in every arm (95% CIs)",

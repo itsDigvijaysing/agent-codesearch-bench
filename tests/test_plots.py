@@ -40,7 +40,7 @@ def test_write_overview_uses_committed_results(tmp_path):
             "ok": True,
             "file_recall@10": 0.8,
             "duration_s": 10.0 + i,
-            "total_tokens": 200000.0 + i,
+            "cost_usd": 0.007 + i / 1000,
         }
         for arm in ("baseline", "semble")
         for i, t in enumerate(("t1", "t2"))
