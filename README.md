@@ -8,7 +8,7 @@ cost** (tokens handed to the agent, time, memory).
 It is neutral: no affiliation with any tool, every tool runs with its documented interface and
 default settings, and every number can be reproduced with one command.
 
-<img src="docs/figures/at-a-glance.svg" width="100%" alt="Results at a glance: semble puts 62% of the needed files in its top 10 (grep 33%); BM25 shows 22% of the needed lines within 8,000 tokens (semble 11%); adding semble or graphify to an agent did not find more files but sessions took 32 s and 60 s instead of 13 s, mostly building the index">
+<img src="docs/figures/at-a-glance.svg" width="100%" alt="Results at a glance: semble puts 62% of the needed files in its top 10 (grep 33%); BM25 shows 22% of the needed lines within 8,000 tokens (semble 11%); on 50 hard tasks an agent alone found 46% of the needed files, 50% with semble and 44% with graphify, at 22% to 33% more cost per session">
 
 <img src="docs/figures/how-it-works.svg" width="100%" alt="How the benchmark works: a real bug report goes to a search tool (Track A) or a coding agent (Track B); what they return is compared with the code people marked as needed; the scores are files found, lines found, tokens used and time">
 

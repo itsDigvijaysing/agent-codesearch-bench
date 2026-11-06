@@ -6,8 +6,9 @@ given as CLAUDE.md project instructions at the top of the prompt. The
 agent ends with a JSON list of locations, scored against the gold context with the Track A
 file and span metrics. Cost comes from the session's own result record (tokens, turns, time).
 
-Sessions are started and read through the cloud session API; each finished session is saved
-as ``.cache/trackb/<run>/<arm>/<task>.json`` with the fields of :data:`RECORD_FIELDS`.
+Sessions ran in cloud sessions through the session API (40-task run) or locally with
+``csbench trackb-local`` (:mod:`csbench.trackb_local`); each finished session is saved as
+``.cache/trackb/<run>/<arm>/<task>.json`` with the fields of :data:`RECORD_FIELDS`.
 """
 
 from __future__ import annotations

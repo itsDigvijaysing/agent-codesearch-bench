@@ -1,5 +1,5 @@
-# Track B: an agent (Claude Code cloud session) localizes the code an issue needs, with and
-# without each tool. Identical prompt for every arm; arms differ only in a project setup line
+# Track B: an agent (Claude Code, cloud session or local sandbox) localizes the code an
+# issue needs, with and without each tool. Identical prompt for every arm; arms differ only in a project setup line
 # and the tool's own documented agent instructions, given as CLAUDE.md project instructions at
 # the top of the prompt (where the tools' installers put them; the session API ignores
 # append_system_prompt).
