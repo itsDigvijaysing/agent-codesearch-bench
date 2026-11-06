@@ -33,7 +33,9 @@ RECORD_FIELDS = (
 # when not collected); permission_denials: tool calls the session's permission check blocked.
 QUALITY = ["file_recall@1", "file_recall@5", "file_recall@10", "mrr", "span_recall",
            "span_precision"]  # fmt: skip
-EXTRA_FIELDS = ("graph_built", "resumed_after_limit", "result_events")
+EXTRA_FIELDS = ("graph_built", "resumed_after_limit", "result_events", "harness", "prebuild_s",
+                "prebuild_ok", "wall_s", "network_commands", "subagent_calls",
+                "claude_code_version")  # fmt: skip
 COST = ["total_tokens", "output_tokens", "num_turns", "duration_s", "cost_usd"]
 CLAUDE_MD_HEADING = "Contents of CLAUDE.md (project instructions, checked into the codebase):"
 _JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
@@ -45,7 +47,13 @@ def load_config(path: str | Path, run: str) -> tuple[dict, Path]:
     cfg = yaml.safe_load(path.read_text())
     spec = cfg["runs"][run]
     arms = spec.get("arms") or list(cfg["arms"])
-    cfg |= {"run": run, "model": spec["model"], "limit": spec.get("limit")}
+    cfg |= {
+        "run": run,
+        "model": spec["model"],
+        "limit": spec.get("limit"),
+        "sample": spec.get("sample", cfg["sample"]),
+        "prebuild": spec.get("prebuild", False),
+    }
     cfg["arms"] = {a: cfg["arms"][a] for a in arms}
     return cfg, path.parent.parent
 
@@ -66,7 +74,7 @@ def session_request(cfg: dict, root: Path, task: Task, arm: str) -> dict:
     spec = cfg["arms"][arm]
     prompt = cfg["prompt"].format(
         repo=task.repo,
-        setup=spec["setup"],
+        setup="" if cfg.get("prebuild") else spec["setup"],  # prebuilt: the index exists
         max_locations=cfg["max_locations"],
         issue=clean(task.problem_statement),
     )
@@ -124,7 +132,9 @@ def score(task: Task, record: dict, limit: int) -> dict:
         "total_tokens": float(tokens) if ok else None,
         "output_tokens": float(record.get("output_tokens") or 0) if ok else None,
         "num_turns": float(record.get("num_turns") or 0) if ok else None,
-        "cost_usd": float(record.get("cost_usd") or 0) if ok else None,
+        # None when the agent's CLI reports no cost, so it is not shown as free
+        "cost_usd": float(record["cost_usd"]) if ok and record.get("cost_usd") is not None
+        else None,
         "duration_s": float(record.get("duration_s") or 0) if ok else None,
         "n_locations": len(locs),
         "ok": ok,
@@ -159,7 +169,16 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
             raw.setdefault(arm, {})[rec["task_id"]] = rec
             extra = {k: rec[k] for k in EXTRA_FIELDS if k in rec}
             records.append({k: rec.get(k) for k in RECORD_FIELDS if k != "result_text"} | extra | s)
-    arms = [a for a in cfg["arms"] if a in scored]
+    committed = out_dir / "records.jsonl.gz"
+    if not records and committed.exists():
+        # No session files (the cloud run's are gone): use the committed, already scored records.
+        for line in gzip.decompress(committed.read_bytes()).decode().splitlines():
+            rec = json.loads(line)
+            if rec["task_id"] in by_task and rec["arm"] in cfg["arms"]:
+                scored.setdefault(rec["arm"], {})[rec["task_id"]] = rec
+                raw.setdefault(rec["arm"], {})[rec["task_id"]] = rec
+                records.append(rec)
+    arms =[a for a in cfg["arms"] if a in scored]
     common = sorted(set.intersection(*(set(scored[a]) for a in arms))) if arms else []
     lines = [
         f"# Track B: {cfg['run']}",
@@ -220,15 +239,16 @@ def summarize(cfg: dict, root: Path, parquet: Path, out_dir: Path) -> str:
         for arm in arms:
             if arm == "baseline":
                 continue
-            for key in ("file_recall@5", "mrr", "total_tokens"):
+            for key in QUALITY + ["total_tokens", "cost_usd", "duration_s"]:
                 a = [scored[arm][t][key] for t in common]
                 b = [scored["baseline"][t][key] for t in common]
                 if None in a or None in b:
                     continue
-                p = paired_bootstrap(np.array(a), np.array(b))
+                p = paired_bootstrap(np.array(a, float), np.array(b, float))
+                f = "{:+.4f}" if key == "cost_usd" else "{:+.3f}"
                 lines.append(
-                    f"| {arm} | {key} | {p['diff']:+.3f} | "
-                    f"[{p['ci_low']:+.3f}, {p['ci_high']:+.3f}] | {p['p_value']:.3f} |"
+                    f"| {arm} | {key} | {f.format(p['diff'])} | "
+                    f"[{f.format(p['ci_low'])}, {f.format(p['ci_high'])}] | {p['p_value']:.3f} |"
                 )
     text = "\n".join(lines) + "\n"
     out_dir.mkdir(parents=True, exist_ok=True)

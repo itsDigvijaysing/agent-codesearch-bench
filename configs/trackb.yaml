@@ -13,6 +13,9 @@ runs:  # name: model and number of sample tasks (a prefix of the seeded sample)
   trackb-pilot: {model: claude-haiku-5-5, limit: 10, arms: [baseline, semble]}
   trackb-haiku: {model: claude-haiku-5-5, limit: 100}
   trackb-sonnet: {model: claude-sonnet-5-5, limit: 20}
+  # Local run (csbench trackb-local): headless sessions in a sandbox on one machine, indexes
+  # built before each session and timed separately, so the setup line is dropped.
+  trackb-hard-haiku: {model: claude-haiku-5-5, sample: data/sample_hard.txt, limit: 50, prebuild: true}
 max_locations: 20
 prompt: |
   You are in a checkout of {repo} at the commit where the issue below was reported.

@@ -34,6 +34,7 @@ def main(argv: list[str] | None = None) -> int:
             "try",
             "trackb-requests",
             "trackb-report",
+            "trackb-local",
         ],
     )
     ap.add_argument("path", nargs="?", help="repository to benchmark (try)")
@@ -52,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--trackb-config", default="configs/trackb.yaml")
     ap.add_argument("--arm", help="Track B arm for trackb-requests")
     ap.add_argument("--trackb-run", default="trackb-pilot", help="named run in the config")
+    ap.add_argument("--parallel", type=int, default=2, help="tasks at once (trackb-local)")
     args = ap.parse_args(argv)
     budget = args.time_budget_min * 60 if args.time_budget_min else None
     if args.command == "try":
@@ -79,6 +81,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "trackb-requests":
             for task in trackb.tasks(tcfg, root, parquet):
                 print(json.dumps(trackb.session_request(tcfg, root, task, args.arm)))
+        elif args.command == "trackb-local":
+            from csbench import trackb_local
+
+            todo = trackb.tasks(tcfg, root, parquet)[: args.limit]
+            if not trackb_local.run(tcfg, root, todo, args.parallel, budget):
+                return 3
         else:
             print(trackb.summarize(tcfg, root, parquet, cfg.path("results") / tcfg["run"]))
             from csbench import plots

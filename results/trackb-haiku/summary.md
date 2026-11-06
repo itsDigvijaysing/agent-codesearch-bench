@@ -22,9 +22,21 @@ Paired bootstrap against `baseline`:
 
 | Arm | Metric | Diff | 95% CI | p |
 |---|---|---|---|---|
+| semble | file_recall@1 | -0.025 | [-0.075, +0.000] | 0.758 |
 | semble | file_recall@5 | +0.022 | [-0.031, +0.078] | 0.446 |
+| semble | file_recall@10 | +0.024 | [-0.031, +0.080] | 0.386 |
 | semble | mrr | -0.013 | [-0.037, +0.000] | 0.758 |
+| semble | span_recall | +0.050 | [-0.018, +0.113] | 0.136 |
+| semble | span_precision | -0.042 | [-0.113, +0.030] | 0.270 |
 | semble | total_tokens | +29439.175 | [-2709.682, +63003.448] | 0.090 |
+| semble | cost_usd | +0.0008 | [+0.0002, +0.0015] | 0.004 |
+| semble | duration_s | +19.512 | [+16.469, +22.753] | 0.000 |
+| graphify | file_recall@1 | -0.025 | [-0.075, +0.000] | 0.758 |
 | graphify | file_recall@5 | +0.008 | [-0.035, +0.050] | 0.736 |
+| graphify | file_recall@10 | +0.012 | [-0.031, +0.056] | 0.562 |
 | graphify | mrr | -0.013 | [-0.037, +0.000] | 0.758 |
+| graphify | span_recall | +0.057 | [-0.002, +0.118] | 0.060 |
+| graphify | span_precision | -0.037 | [-0.112, +0.041] | 0.352 |
 | graphify | total_tokens | +58315.800 | [+16236.541, +100879.699] | 0.006 |
+| graphify | cost_usd | +0.0029 | [+0.0019, +0.0039] | 0.000 |
+| graphify | duration_s | +47.374 | [+36.578, +59.058] | 0.000 |
