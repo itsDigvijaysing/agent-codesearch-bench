@@ -28,3 +28,15 @@ def test_plot_tick_formatters():
 
     assert [fmt_tokens(v) for v in (500, 2000, 50000)] == ["500", "2K", "50K"]
     assert [fmt_seconds(v) for v in (0.002, 0.05, 2)] == ["2 ms", "50 ms", "2 s"]
+
+
+def test_headline_is_a_simple_percentage_table():
+    from types import SimpleNamespace
+
+    from csbench.report import headline
+
+    rows = [{"tool": "semble", "version": "semble 0.7.2", "file_recall@10_mean": 0.62,
+             "line_recall@8000tok_mean": None, "tokens_returned_mean": 3344.2, "n_failed": 0}]
+    text = headline(SimpleNamespace(run_name="v1"), rows, ["t"] * 100)
+    assert "| semble (semble 0.7.2) | 62% | n/a | 3,344 |" in text
+    assert "Means over 100 tasks (0 failed queries)" in text

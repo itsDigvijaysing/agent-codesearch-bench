@@ -195,24 +195,27 @@ README_END = "<!-- results:end -->"
 
 
 def headline(cfg: Config, rows: list[dict], order: list[str]) -> str:
-    """Compact table for the README, generated so it never drifts from the summary."""
+    """Simple table for the README, generated so it never drifts from the summary."""
+
+    def pct(r: dict, key: str) -> str:
+        m = r.get(f"{key}_mean")
+        return "n/a" if m is None else f"{m * 100:.0f}%"
+
     lines = [
-        "| Tool | File recall@10 | MRR | Line recall @ 8k tokens | Tokens returned | Failures |",
-        "|---|---|---|---|---|---|",
+        "| Tool | Files found (top 10) | Lines found (first 8k tokens) | Tokens per query |",
+        "|---|---|---|---|",
     ]
     for r in rows:
         tokens = r.get("tokens_returned_mean")
         lines.append(
-            f"| {r['tool']} ({r['version']}) | {_fmt(r, 'file_recall@10')} | {_fmt(r, 'mrr')} | "
-            f"{_fmt(r, 'line_recall@8000tok')} | {'n/a' if tokens is None else f'{tokens:,.0f}'} "
-            f"| {r['n_failed']}/{r['n_tasks']} |"
+            f"| {r['tool']} ({r['version']}) | {pct(r, 'file_recall@10')} | "
+            f"{pct(r, 'line_recall@8000tok')} | {'n/a' if tokens is None else f'{tokens:,.0f}'} |"
         )
-    b = cfg["bootstrap"]
+    failed = sum(r["n_failed"] for r in rows)
     lines += [
         "",
-        f"Means over {len(order)} tasks with 95% bootstrap confidence intervals "
-        f"(B = {b['n_boot']}, seed {b['seed']}). Full table: "
-        f"[results/{cfg.run_name}/summary.md](results/{cfg.run_name}/summary.md).",
+        f"Means over {len(order)} tasks ({failed} failed queries). Confidence intervals and every "
+        f"other measure: [results/{cfg.run_name}/summary.md](results/{cfg.run_name}/summary.md).",
     ]
     return "\n".join(lines)
 
