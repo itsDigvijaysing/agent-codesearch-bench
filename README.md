@@ -14,7 +14,7 @@ default settings, and every number can be reproduced with one command.
 
 ## Key findings
 
-Written by hand from the results of 4 November 2026; the tables further down are regenerated
+Written by hand from the results of 4 and 6 November 2026; the tables further down are regenerated
 when tool versions change.
 
 1. **Finding the right files: semble is best.** In its top 10 results it finds 62% of the
@@ -29,23 +29,23 @@ when tool versions change.
    languages, scores drop to between a third and a half of the main run. semble still leads
    (29%), then graphify (21%) and BM25 (18%); grep ranked by distinct terms falls from second
    to fourth (15%), and plain grep finds 12%.
-4. **With an agent, the tools did not improve accuracy (preliminary, 40 tasks).** An agent
-   using only its built-in search and file reading found 83% of the needed files on average,
-   and all of them in 25 of 40 tasks. Search alone on the same 40 tasks found 40% with grep
-   and 71% with semble. Given semble or graphify with their own instructions, the agent used them
-   in 35 and 34 of 40 sessions, yet no accuracy difference reached significance (all within
-   6 points, smallest p = 0.06). The tools did cost more: 11% more per session with semble
-   and 39% more with graphify at list price (both significant). Sessions also took about 2.6
-   and 4.8 times as long, but most of that is the tool building its index inside the session
-   (graphify's graph build alone averages 38 s on these tasks), which a regular user does once.
-   These 40 tasks are easy for an agent: 30 of the bug reports name a needed file, 18 tasks
-   need a single file, and 25 come from SWE-bench Verified, which the model may have seen in
-   training.
+4. **With an agent, the tools barely changed accuracy.** On the 50 hard tasks, an agent
+   (Claude Code, Haiku model) using only its built-in search and file reading found 46% of the
+   needed files, more than any tool's search alone on the same tasks (semble 29%). Given
+   semble with its own instructions, it found 50%: +3.9 points (p = 0.036), weak evidence,
+   since it is one of 12 uncorrected accuracy comparisons and the top-5 gain is not
+   significant (p = 0.09). graphify made no difference (44%, p = 0.41). The agent ran both
+   tools in all 50 sessions, and they cost more per session: 33% with semble and 22% with
+   graphify at list price (both significant), with each index built before the session. On
+   40 easier tasks (preliminary) the agent alone found 83%, and no accuracy difference reached
+   significance (all within 6 points, smallest p = 0.06), at 11% and 39% more cost. Those tasks
+   are easy for an agent: 30 of the 40 bug reports name a needed file, 18 need a single file,
+   and 25 come from SWE-bench Verified, which the model may have seen in training.
 5. **What it means:** a better search tool matters most when one search is all you get (a
-   single retrieval step, a RAG pipeline). An agent that can grep and read files recovered
-   most of the gap on these mostly easy tasks, at least with this model (Claude Haiku).
-   Whether that holds for larger, multi-file tasks is still open; the hard split is the next
-   test.
+   single retrieval step, a RAG pipeline). An agent that can grep and read files did better on
+   its own than any tool's single search, on easy and hard tasks alike, and adding a tool gave
+   it at most a few points for 11 to 39% more cost per session, at least with this model
+   (Claude Haiku). Whether other agents or models use the tools better is not tested.
 
 ## How to read the numbers
 
@@ -137,11 +137,31 @@ code-review-graph 0.051. Full table with confidence intervals:
   <img alt="Dot chart, one row per tool: a solid dot for file recall@10 on the 100 v1 tasks and a ring for the 50 hard tasks. Every tool drops; semble stays highest on both" src="results/plots/v1_vs_hard_light.png" width="720">
 </picture>
 
-### Track B: an agent with each tool (preliminary, 40 tasks)
+### Track B: an agent with each tool
 
 A coding agent (Claude Code, Haiku model) reads the issue in the repository and lists the code
-to read or change. The arms differ only in which tool, if any, it is given. Full table with
-confidence intervals and paired tests:
+to read or change. The arms differ only in which tool, if any, it is given.
+
+**Hard split (50 tasks).** Full table with confidence intervals and paired tests:
+[results/trackb-hard-haiku/summary.md](results/trackb-hard-haiku/summary.md).
+
+| Arm | Used the tool | File recall@10 | Found every needed file | Cost per session | Time per session (index built before) |
+|---|---|---|---|---|---|
+| Agent alone | not recorded | 0.459 | 3/50 | $0.0041 | 17 s |
+| Agent + semble | 50/50 | 0.498 (+3.9 points, p = 0.036) | 6/50 | $0.0054 (+33%) | 24 s (index 7 s) |
+| Agent + graphify | 50/50 | 0.441 (p = 0.41) | 3/50 | $0.0050 (+22%) | 21 s (graph 36 s) |
+
+Run on one machine with `claude -p` (Claude Code 2.1.319) in a sandbox instead of a cloud
+session (see Method), with the same prompt, model and arms as the 40-task run below. Each
+tool's index is built before the session and timed separately, so the time column measures
+using the tool, not building it. On the same 50 tasks, search alone put 29% (semble), 21%
+(graphify), 18% (BM25) and 12% (grep) of the needed files in its top 10, so the agent alone
+beats every tool used alone. All 150 sessions finished; none used the web, ran a network
+command or had a call blocked. Token counts are 82 to 84% cached reads. A first attempt at
+this run (39 sessions) was discarded because the checkout paths named the task source and the
+arm.
+
+**Easy subset (preliminary, 40 tasks).** Full table with confidence intervals and paired tests:
 [results/trackb-haiku/summary.md](results/trackb-haiku/summary.md).
 
 | Arm | Used the tool | File recall@10 | Found every needed file | Cost per session | Time per session (incl. index build) |
@@ -231,7 +251,15 @@ with the Track A metrics; cost is the session's own token count, turns, time and
 cost. Web search and fetch are forbidden in the prompt and their use is counted (0 in every
 session). For the tool arms, whether the agent actually ran the tool is recorded. All tools
 are preinstalled for every arm by the cloud environment's setup script, so every arm runs on
-the same machine image.
+the same machine image. The hard-split run uses the same prompt, model and arms through
+`claude -p` on one machine ([`src/csbench/trackb_local.py`](src/csbench/trackb_local.py)),
+each session in a bubblewrap sandbox: a read-only system, the repository at
+`/home/user/<repo>` (a depth-1 checkout of the base commit, no remote), an empty home with
+semble and graphify installed from the pinned lock files, and none of the host's Claude Code
+settings, instructions or sign-in files (the session gets only an access token). No path or
+variable names the benchmark, the task source or the arm. Indexes are built before the
+session and timed separately, so that run drops the setup line. Web tools are disabled, and
+shell commands that reach the network are counted.
 
 **Baselines.**
 - *grep*: identifiers extracted from the issue text (file paths, dotted names, CamelCase and
@@ -286,7 +314,8 @@ agent receives. Token-budget recall is not applicable to them.
 
 **Statistics.** Means with 95% percentile bootstrap confidence intervals over tasks
 (B = 1000, seed 42), and a paired bootstrap of each tool against the grep baseline
-(`results/<run>/paired_vs_grep.csv`). Failed tasks are never dropped: they score zero on every
+(`results/<run>/paired_vs_grep.csv`); in Track B, of each tool arm against the agent alone
+(`results/<run>/summary.md`). Failed tasks are never dropped: they score zero on every
 quality metric and the failure rate is reported. Cost metrics are over successful tasks.
 
 ## Reproduce
@@ -314,6 +343,12 @@ Per-task records are committed in `results/v1/per_task/<tool>.jsonl.gz`. Each re
 a fingerprint of the tool settings, metric settings, dataset revision, the tool's lock file and
 the adapter and metric source code; `uv run csbench run` (without `--fresh`) reuses a committed
 record only when its fingerprint still matches.
+
+Track B's hard run: `uv run csbench trackb-local --trackb-run trackb-hard-haiku` starts the
+sessions (needs Claude Code signed in on the machine and bubblewrap; about $0.75 at list
+price; finished sessions are skipped), and `uv run csbench trackb-report --trackb-run
+trackb-hard-haiku` scores them. `trackb-report` rebuilds a run's summary from its committed
+records when the session files are not on the machine.
 
 ## Tools
 
@@ -347,9 +382,10 @@ record only when its fingerprint still matches.
 - The grep baseline returns every hit line (with context) of its top 10 files, so its token
   count is far higher than an agent that lists matching files first and then reads a few. The
   token-budget recall columns compare tools at equal token cost.
-- Track B is preliminary: 40 tasks, one model (Haiku), one session per task and arm (agent
-  runs are not deterministic), localization only (no patch or tests). With 40 tasks, accuracy
-  differences smaller than about 5 points cannot be told apart from noise.
+- Track B uses one agent and model (Claude Code, Haiku), one session per task and arm (agent
+  runs are not deterministic), localization only (no patch or tests), and 40 easy or 50 hard
+  tasks. Differences of a few points cannot be told apart from noise: semble's +3.9 points on
+  the hard split (p = 0.036) is one of 12 accuracy comparisons without correction.
 - Track B's 40 tasks may overstate what an agent does alone: most bug reports name a needed
   file, and 25 of the 40 come from SWE-bench Verified, whose fixes are public and may be in the
   model's training data. The hard split draws mostly on newer sources (SWE-bench Pro,
@@ -360,8 +396,13 @@ record only when its fingerprint still matches.
 - In Track B, one semble session hit a Hugging Face download limit while fetching semble's
   model (25 sessions started at once); which one is not recorded, so "used the tool" may
   count one session where semble did not return results.
-- Track B runs in Claude Code cloud sessions, which change between versions, so the protocol
-  and per-session records are committed but the sessions cannot be replayed exactly.
+- The 40-task run used Claude Code cloud sessions and the hard run a local Claude Code
+  2.1.319; both change between versions, so the protocol and per-session records are committed
+  but sessions cannot be replayed exactly. Their times are not comparable: the cloud run built
+  each index inside the session, the local run before it.
+- The local sandbox keeps the network open (the session needs the API). Web tools are off and
+  shell commands that reach the network are counted (none ran), but a download from inside a
+  script would not be counted, and the fixes for these tasks are public.
 - code-review-graph and Serena are not Track B arms: their documented agent integration is an
   MCP server, which a cloud session cannot have configured before it starts without also
   exposing it to the baseline arm.
